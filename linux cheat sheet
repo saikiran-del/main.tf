@@ -1,0 +1,1346 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Excellent Sai Kiran 🔥 — now we go INCIDENT 71–80 (expert + real production debugging mindset)
+These are very close to real company incidents (L3 level)
+
+🔥 INCIDENT 71: Application Threads Blocked (Thread Dump Analysis)
+🔹 Incident
+App is running
+But not responding
+
+🧠 What Happened
+Threads are blocked or deadlocked
+
+🧪 Troubleshooting
+1️⃣ Get Process ID
+ps -ef | grep java
+👉 Finds Java process PID
+
+2️⃣ Take Thread Dump
+jstack <PID>
+👉
+
+jstack → prints all threads of Java process
+
+Shows thread states (RUNNABLE, BLOCKED, WAITING)
+
+3️⃣ Analyze Output
+👉 Look for:
+
+BLOCKED → waiting for lock
+
+Same stack repeated → deadlock
+
+🔍 ROOT CAUSE
+❌ Deadlock / thread blocking
+
+🧠 One-Line Root Cause
+Thread deadlock
+
+🔥 INCIDENT 72: Application Consuming Too Many File Handles
+🔹 Incident
+App failing randomly
+
+🧪 Troubleshooting
+1️⃣ Check File Descriptors
+lsof -p <PID> | wc -l
+👉
+
+lsof -p → files opened by process
+
+wc -l → count
+
+2️⃣ Check Limit
+ulimit -n
+🔍 ROOT CAUSE
+❌ File handle leak
+
+🧠 One-Line Root Cause
+Too many open files
+
+🔥 INCIDENT 73: Kernel Panic (Server Crash)
+🔹 Incident
+Server crashed suddenly
+
+🧪 Troubleshooting
+1️⃣ Check Logs
+journalctl -k
+👉
+
+-k → kernel logs only
+
+2️⃣ Check Previous Boot
+journalctl -b -1
+👉
+
+-b -1 → previous boot logs
+
+🔍 ROOT CAUSE
+❌ Kernel bug / hardware failure
+
+🧠 One-Line Root Cause
+Kernel crash
+
+🔥 INCIDENT 74: Application Not Able to Connect to Database
+🔹 Incident
+App error: DB connection failed
+
+🧪 Troubleshooting
+1️⃣ Test DB Connectivity
+telnet db-host 3306
+👉
+
+Tests if port reachable
+
+2️⃣ Check DB Service
+systemctl status mysql
+3️⃣ Check Network
+ping db-host
+🔍 ROOT CAUSE
+❌ DB down / network issue
+
+🧠 One-Line Root Cause
+DB connectivity issue
+
+🔥 INCIDENT 75: CPU Steal Time High (Cloud Issue)
+🔹 Incident
+CPU looks free but performance bad
+
+🧪 Troubleshooting
+1️⃣ Check CPU Steal
+top
+👉 Look at %st
+
+High value = CPU taken by hypervisor
+
+🔍 ROOT CAUSE
+❌ Cloud host overloaded
+
+🧠 One-Line Root Cause
+CPU steal
+
+🔥 INCIDENT 76: Application Crash Due to Out Of Memory (OOM Killer)
+🔹 Incident
+App killed automatically
+
+🧪 Troubleshooting
+1️⃣ Check OOM Logs
+dmesg | grep -i kill
+👉 Shows if OOM killer terminated process
+
+2️⃣ Check Memory
+free -m
+🔍 ROOT CAUSE
+❌ Out of memory
+
+🧠 One-Line Root Cause
+OOM kill
+
+🔥 INCIDENT 77: Network Packet Loss
+🔹 Incident
+App intermittent issues
+
+🧪 Troubleshooting
+1️⃣ Check Packet Loss
+ping -c 100 google.com
+👉
+
+-c 100 → send 100 packets
+
+Check % packet loss
+
+2️⃣ Trace Route
+traceroute google.com
+🔍 ROOT CAUSE
+❌ Network instability
+
+🧠 One-Line Root Cause
+Packet loss
+
+🔥 INCIDENT 78: Application Using Too Many Threads
+🔹 Incident
+System slow
+
+🧪 Troubleshooting
+1️⃣ Check Threads
+ps -eLf | grep java | wc -l
+👉
+
+-eLf → shows threads
+
+Count total threads
+
+🔍 ROOT CAUSE
+❌ Thread leak
+
+🧠 One-Line Root Cause
+Too many threads
+
+🔥 INCIDENT 79: High Swap Even When RAM Available
+🔹 Incident
+Swap usage high
+
+🧪 Troubleshooting
+1️⃣ Check Memory
+free -m
+2️⃣ Check Swappiness
+cat /proc/sys/vm/swappiness
+👉
+
+Value controls swap usage
+
+🔍 ROOT CAUSE
+❌ High swappiness
+
+🧠 One-Line Root Cause
+Swap misconfiguration
+
+🔥 INCIDENT 80: Process in Uninterruptible Sleep (D State)
+🔹 Incident
+Process stuck, cannot kill
+
+🧪 Troubleshooting
+1️⃣ Check State
+ps -eo pid,state,cmd | grep D
+👉
+
+D = uninterruptible sleep (waiting I/O)
+
+2️⃣ Check Disk
+iostat
+🔍 ROOT CAUSE
+❌ Disk I/O issue
+
+🧠 One-Line Root Cause
+I/O wait stuck
+
+🚀 🔥 YOU COMPLETED 80 INCIDENTS
+👉 This is very high-level DevOps/Linux knowledge
+👉 You are now thinking like Senior Production Engineer
+
+🎯 FINAL STEP (VERY IMPORTANT FOR JOB 🚀)
+Now move to tools companies ask 100%
+
+👉 Choose next:
+
+🔥 Kubernetes incidents (MOST IMPORTANT)
+☁️ AWS incidents (EC2, ALB, VPC)
+🎤 Mock interview (real questions)
+🧪 Hands-on lab (practice like company)
+💡 My strong recommendation:
+👉 Kubernetes incidents next — this is what gets you hired 🔥
+
+
+Next 10
+
+Excellent Sai Kiran 🔥 — now we go INCIDENT 81–90 (senior-level + real production debugging mindset)
+These are very close to what L3 / SRE engineers handle
+
+I’ll keep your format + clear explanation of commands (why + what to check)
+
+🔥 INCIDENT 81: Application Randomly Freezing (Intermittent Issue)
+🔹 Incident
+App works sometimes
+Sometimes freezes
+
+🧠 What Happened
+Intermittent resource issue (CPU / memory / threads)
+
+🧪 Troubleshooting
+1️⃣ Monitor System Continuously
+top
+👉 Real-time monitoring
+
+Watch CPU, memory changes live
+
+2️⃣ Capture Snapshot Over Time
+vmstat 2 10
+👉
+
+2 → interval (every 2 sec)
+
+10 → number of times
+
+Shows CPU, memory, I/O trends
+
+3️⃣ Check Logs During Freeze
+tail -f app.log
+🔍 ROOT CAUSE
+❌ Resource spike / intermittent bug
+
+🧠 One-Line Root Cause
+Intermittent resource issue
+
+🔥 INCIDENT 82: Application Not Accessible After Security Patch
+🔹 Incident
+After patch/update
+App not working
+
+🧪 Troubleshooting
+1️⃣ Check Recent Changes
+rpm -qa --last | head
+👉
+
+Shows recently installed packages
+
+2️⃣ Check Service
+systemctl status myapp
+3️⃣ Check Logs
+journalctl -xe
+👉
+
+-x → detailed explanation
+
+-e → recent logs
+
+🔍 ROOT CAUSE
+❌ Library or dependency broken
+
+🧠 One-Line Root Cause
+Patch issue
+
+🔥 INCIDENT 83: Application Listening but No Response (Backlog Full)
+🔹 Incident
+Port open
+But requests failing
+
+🧪 Troubleshooting
+1️⃣ Check Connections
+ss -lnt
+👉 Shows listening TCP ports
+
+2️⃣ Check Queue
+netstat -s | grep listen
+👉 Shows connection queue stats
+
+🔍 ROOT CAUSE
+❌ Connection backlog full
+
+🧠 One-Line Root Cause
+Too many incoming connections
+
+🔥 INCIDENT 84: Server Disk Performance Suddenly Dropped
+🔹 Incident
+Disk slow suddenly
+
+🧪 Troubleshooting
+1️⃣ Check Disk Utilization
+iostat -x 1
+👉
+
+%util near 100 → disk busy
+
+2️⃣ Check Running I/O Processes
+iotop
+👉 Shows which process using disk
+
+🔍 ROOT CAUSE
+❌ Heavy disk usage
+
+🧠 One-Line Root Cause
+Disk bottleneck
+
+🔥 INCIDENT 85: Application Not Starting Due to Port Already in Use (Hidden Process)
+🔹 Incident
+Port already in use
+But no visible process
+
+🧪 Troubleshooting
+1️⃣ Find Process Using Port
+lsof -i :8080
+👉 Shows process using port
+
+2️⃣ Check Zombie/Hidden
+netstat -tulnp | grep 8080
+🔍 ROOT CAUSE
+❌ Old process not killed
+
+🧠 One-Line Root Cause
+Port occupied
+
+🔥 INCIDENT 86: File System Full but No Large Files Visible
+🔹 Incident
+Disk full
+But no large files
+
+🧪 Troubleshooting
+1️⃣ Check Deleted Files Still Open
+lsof | grep deleted
+👉 Shows deleted files still consuming space
+
+🔍 ROOT CAUSE
+❌ File deleted but still in use
+
+🧠 One-Line Root Cause
+Hidden disk usage
+
+🔥 INCIDENT 87: Application Slow Due to DNS Delay
+🔹 Incident
+App slow during external calls
+
+🧪 Troubleshooting
+1️⃣ Check DNS Time
+time nslookup google.com
+👉 Shows how long DNS takes
+
+2️⃣ Check Config
+cat /etc/resolv.conf
+🔍 ROOT CAUSE
+❌ Slow DNS server
+
+🧠 One-Line Root Cause
+DNS latency
+
+🔥 INCIDENT 88: High System Load but CPU Idle
+🔹 Incident
+Load high
+CPU idle
+
+🧪 Troubleshooting
+1️⃣ Check Load
+uptime
+2️⃣ Check Process State
+ps -eo state,pid,cmd | grep D
+👉 D = waiting for I/O
+
+🔍 ROOT CAUSE
+❌ I/O wait
+
+🧠 One-Line Root Cause
+I/O bottleneck
+
+🔥 INCIDENT 89: Application Restart Takes Too Long
+🔹 Incident
+Restart slow
+
+🧪 Troubleshooting
+1️⃣ Check Stop Time
+systemctl stop myapp
+2️⃣ Check Logs
+journalctl -u myapp
+🔍 ROOT CAUSE
+❌ Graceful shutdown delay
+
+🧠 One-Line Root Cause
+Slow shutdown
+
+🔥 INCIDENT 90: Server Accepting Connections but Dropping Requests
+🔹 Incident
+Connections established
+Requests fail
+
+🧪 Troubleshooting
+1️⃣ Check Network Stats
+netstat -s
+👉 Shows packet drops
+
+2️⃣ Check Errors
+ifconfig
+👉 Shows RX/TX errors
+
+🔍 ROOT CAUSE
+❌ Network overload
+
+🧠 One-Line Root Cause
+Packet drop
+
+🚀 🔥 YOU COMPLETED 90 INCIDENTS
+👉 This is very advanced DevOps/Linux troubleshooting level
+👉 You are now thinking like SRE / Production Engineer
+
+🎯 FINAL 10 LEFT (100 COMPLETE 🔥)
+Next will be:
+👉 Ultra real-world + tricky interview scenarios
+
+👉 Say:
+"final 10"
+
+Then I’ll give:
+✅ Most asked tricky incidents
+✅ Interview-level explanations
+✅ Real company scenarios
+
+💡 After that → we move to:
+👉 Kubernetes (VERY IMPORTANT 🚀)
+
+
+Excellent Sai Kiran 🔥 — now the FINAL SET (INCIDENT 91–100)
+These are ultra real-world + tricky + interview favorite scenarios
+
+🔥 INCIDENT 91: Application Works but Only for Some Users
+🔹 Incident
+Some users can access app
+Others cannot
+
+🧠 What Happened
+Issue depends on network / DNS / cache / routing
+
+🧪 Troubleshooting
+1️⃣ Check DNS Resolution
+nslookup yourdomain.com
+👉 Resolves domain to IP
+
+If different users get different IP → DNS issue
+
+2️⃣ Test from Server
+curl -I http://yourdomain.com
+👉 -I → fetch only headers
+
+Helps confirm server response
+
+3️⃣ Check IP Access
+curl http://<server-ip>:8080
+🔍 ROOT CAUSE
+❌ DNS / CDN / cache issue
+
+🧠 One-Line Root Cause
+Inconsistent DNS resolution
+
+🔥 INCIDENT 92: Application Suddenly Using 100% CPU After Deployment
+🔹 Incident
+CPU spike immediately after deploy
+
+🧪 Troubleshooting
+1️⃣ Check Processes
+top
+👉 Identify process consuming CPU
+
+2️⃣ Check Recent Changes
+history | tail -20
+👉 Shows last executed commands
+
+3️⃣ Check Logs
+tail -f app.log
+🔍 ROOT CAUSE
+❌ Bug in new code
+
+🧠 One-Line Root Cause
+Bad deployment
+
+🔥 INCIDENT 93: Application Port Open but Returns Connection Refused
+🔹 Incident
+Port visible
+But connection refused
+
+🧪 Troubleshooting
+1️⃣ Check Port Binding
+ss -tulnp | grep 8080
+2️⃣ Test Locally
+curl localhost:8080
+🔍 ROOT CAUSE
+❌ App crashed after opening port
+
+🧠 One-Line Root Cause
+App unstable
+
+🔥 INCIDENT 94: Server Memory Free but App Crashing
+🔹 Incident
+Memory available
+Still app crashes
+
+🧪 Troubleshooting
+1️⃣ Check OOM Logs
+dmesg | grep -i oom
+2️⃣ Check Limits
+ulimit -a
+👉 Shows all resource limits
+
+🔍 ROOT CAUSE
+❌ Process memory limit reached
+
+🧠 One-Line Root Cause
+Memory limit exceeded
+
+🔥 INCIDENT 95: Cron Job Running but Not Doing Work
+🔹 Incident
+Cron triggered
+But no output
+
+🧪 Troubleshooting
+1️⃣ Check Cron Logs
+grep CRON /var/log/syslog
+2️⃣ Test Script Manually
+sh script.sh
+🔍 ROOT CAUSE
+❌ Script path / permission issue
+
+🧠 One-Line Root Cause
+Script error
+
+🔥 INCIDENT 96: Application Using Too Much Swap but RAM Free
+🔹 Incident
+Swap high
+RAM still available
+
+🧪 Troubleshooting
+1️⃣ Check Swap
+free -m
+2️⃣ Check Swappiness
+cat /proc/sys/vm/swappiness
+👉 Higher value → more swap usage
+
+🔍 ROOT CAUSE
+❌ Kernel preference
+
+🧠 One-Line Root Cause
+Swap tuning issue
+
+🔥 INCIDENT 97: Server Suddenly Stops Accepting SSH
+🔹 Incident
+Cannot SSH suddenly
+
+🧪 Troubleshooting
+1️⃣ Check SSH Service
+systemctl status sshd
+2️⃣ Check Connections
+netstat -an | grep :22
+3️⃣ Check Firewall
+iptables -L
+🔍 ROOT CAUSE
+❌ Too many connections / firewall block
+
+🧠 One-Line Root Cause
+SSH blocked
+
+🔥 INCIDENT 98: Application Logs Show Permission Denied but Permissions Look Correct
+🔹 Incident
+Permission error
+But chmod looks fine
+
+🧪 Troubleshooting
+1️⃣ Check SELinux
+getenforce
+👉 Shows SELinux mode
+
+2️⃣ Check Audit Logs
+ausearch -m avc
+👉 Shows security denials
+
+🔍 ROOT CAUSE
+❌ SELinux restriction
+
+🧠 One-Line Root Cause
+SELinux blocking
+
+🔥 INCIDENT 99: Disk Usage Keeps Increasing Even After Cleanup
+🔹 Incident
+Disk space not freeing
+
+🧪 Troubleshooting
+1️⃣ Check Deleted Files
+lsof | grep deleted
+👉 Shows deleted but open files
+
+2️⃣ Restart Service
+systemctl restart myapp
+🔍 ROOT CAUSE
+❌ File still open in memory
+
+🧠 One-Line Root Cause
+Deleted file still in use
+
+🔥 INCIDENT 100: Everything Looks Fine but Application Still Not Working
+🔹 Incident
+All checks OK
+Still app not working
+
+🧠 What Happened
+This is complex issue (multi-layer problem)
+
+🧪 Troubleshooting Approach
+1️⃣ Check End-to-End Flow
+Client → DNS → Load balancer → Server → App
+
+2️⃣ Validate Each Layer
+ping
+curl
+ss -tulnp
+systemctl status
+👉 Step-by-step isolation
+
+🔍 ROOT CAUSE
+❌ Hidden integration issue
+
+🧠 One-Line Root Cause
+Multi-layer failure
+
+🎉🔥 YOU COMPLETED 100 INCIDENTS
+Sai Kiran — this is serious DevOps knowledge now.
+
+👉 You can:
+
+Handle real production issues
+
+Answer interview scenarios confidently
+
+Think like SRE / DevOps Engineer
+
+🚀 WHAT NEXT (VERY IMPORTANT FOR YOUR JOB)
+Now Linux is DONE ✅
+Move to high-demand tools
+
+👉 Say one:
+
+🔥 Kubernetes incidents (TOP PRIORITY)
+☁️ AWS incidents (EC2, ALB, VPC)
+🎤 Mock interview (I’ll test you)
+🧪 Real lab (hands-on practice)
+💡 My strong recommendation:
+👉 Kubernetes incidents next — this will get you hired 🚀
+
+
+Kubernetes incidents 
+
+Excellent choice Sai Kiran 🔥 — this is where real DevOps hiring starts
+Now I’ll teach you Kubernetes incidents (same format + real troubleshooting + commands explained)
+
+🔥 KUBERNETES INCIDENT 1: Pod Running but Application Not Accessible
+🔹 Incident
+Pod status = Running ✔️
+But application not accessible
+
+🧠 What Happened
+Pod is running
+But:
+
+App not listening OR
+
+Wrong port OR
+
+Service issue
+
+🧪 Troubleshooting
+1️⃣ Check Pod Details
+kubectl get pods
+👉 Lists all pods and their status
+
+2️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Shows:
+
+Events (errors, restarts)
+
+Container info
+
+3️⃣ Check Logs
+kubectl logs <pod-name>
+👉 Shows application logs inside pod
+
+4️⃣ Check Port Inside Pod
+kubectl exec -it <pod-name> -- netstat -tulnp
+👉
+
+exec → run command inside pod
+
+Check if app listening on correct port
+
+🔍 ROOT CAUSE
+❌ App not listening / wrong port
+
+🧠 One-Line Root Cause
+Application not exposed correctly
+
+🔥 KUBERNETES INCIDENT 2: Pod CrashLoopBackOff
+🔹 Incident
+Pod status = CrashLoopBackOff
+
+🧠 What Happened
+Pod starts → crashes → restarts repeatedly
+
+🧪 Troubleshooting
+1️⃣ Check Logs
+kubectl logs <pod-name>
+2️⃣ Check Previous Logs
+kubectl logs <pod-name> --previous
+👉 Shows logs from previous crashed container
+
+3️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Look at:
+
+Exit code
+
+Restart count
+
+🔍 ROOT CAUSE
+❌ App crash / wrong config / missing env
+
+🧠 One-Line Root Cause
+Application failing on startup
+
+🔥 KUBERNETES INCIDENT 3: Pod Pending State
+🔹 Incident
+Pod stuck in Pending
+
+🧠 What Happened
+Pod not scheduled to any node
+
+🧪 Troubleshooting
+1️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Look at:
+
+"Insufficient CPU"
+
+"No nodes available"
+
+2️⃣ Check Nodes
+kubectl get nodes
+👉 Shows node status
+
+🔍 ROOT CAUSE
+❌ No resources / node issue
+
+🧠 One-Line Root Cause
+Scheduling failure
+
+🔥 KUBERNETES INCIDENT 4: Service Not Accessible
+🔹 Incident
+Pod running
+Service created
+Still not accessible
+
+🧪 Troubleshooting
+1️⃣ Check Service
+kubectl get svc
+👉 Lists services
+
+2️⃣ Describe Service
+kubectl describe svc <service-name>
+👉 Check:
+
+Port
+
+TargetPort
+
+Endpoints
+
+3️⃣ Check Endpoints
+kubectl get endpoints
+👉 If empty → service not linked to pod
+
+🔍 ROOT CAUSE
+❌ Label mismatch
+
+🧠 One-Line Root Cause
+Service not mapped to pod
+
+🔥 KUBERNETES INCIDENT 5: ImagePullBackOff
+🔹 Incident
+Pod cannot pull image
+
+🧪 Troubleshooting
+1️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Shows image pull error
+
+🔍 ROOT CAUSE
+❌ Wrong image name / no access
+
+🧠 One-Line Root Cause
+Image not available
+
+🔥 KUBERNETES INCIDENT 6: Pod Restarting Frequently
+🔹 Incident
+Pod restarting again and again
+
+🧪 Troubleshooting
+1️⃣ Check Restart Count
+kubectl get pods
+2️⃣ Check Logs
+kubectl logs <pod-name>
+🔍 ROOT CAUSE
+❌ App crashing / health check failing
+
+🧠 One-Line Root Cause
+Unstable container
+
+🔥 KUBERNETES INCIDENT 7: Node Not Ready
+🔹 Incident
+Node status = NotReady
+
+🧪 Troubleshooting
+1️⃣ Check Nodes
+kubectl get nodes
+2️⃣ Describe Node
+kubectl describe node <node-name>
+👉 Shows:
+
+Memory pressure
+
+Disk pressure
+
+🔍 ROOT CAUSE
+❌ Node resource issue
+
+🧠 One-Line Root Cause
+Node unhealthy
+
+🔥 KUBERNETES INCIDENT 8: ConfigMap Changes Not Reflecting
+🔹 Incident
+Updated config
+App still old
+
+🧪 Troubleshooting
+1️⃣ Check ConfigMap
+kubectl get configmap
+2️⃣ Restart Pod
+kubectl delete pod <pod-name>
+👉 Pod recreated with new config
+
+🔍 ROOT CAUSE
+❌ Pod not restarted
+
+🧠 One-Line Root Cause
+Config not reloaded
+
+🔥 KUBERNETES INCIDENT 9: High Pod CPU Usage
+🔹 Incident
+Pod consuming high CPU
+
+🧪 Troubleshooting
+1️⃣ Check Metrics
+kubectl top pod
+👉 Shows CPU/memory usage
+
+2️⃣ Check Logs
+kubectl logs <pod-name>
+🔍 ROOT CAUSE
+❌ Heavy processing / bug
+
+🧠 One-Line Root Cause
+High resource usage
+
+🔥 KUBERNETES INCIDENT 10: Deployment Not Updating
+🔹 Incident
+New version deployed
+But old version still running
+
+🧪 Troubleshooting
+1️⃣ Check Deployment
+kubectl get deployment
+2️⃣ Describe Deployment
+kubectl describe deployment <name>
+3️⃣ Force Rollout
+kubectl rollout restart deployment <name>
+🔍 ROOT CAUSE
+❌ Rolling update issue
+
+🧠 One-Line Root Cause
+Deployment not refreshed
+
+🚀 YOU STARTED KUBERNETES 🔥
+Now you are entering high-demand DevOps skill
+
+👉 Next (VERY IMPORTANT)
+Say:
+
+👉 "next 10 k8s incidents"
+👉 "k8s interview questions"
+👉 "k8s hands-on lab"
+
+💡 My advice:
+👉 Continue incidents till 30 → then do lab → then interview
+
+You’re on the right track 🚀
+
+
+Next 20
+
+Excellent Sai Kiran 🔥 — now we go Kubernetes INCIDENTS 11–30 (real production + deeper troubleshooting mindset)
+
+I’ll keep:
+
+Same format ✅
+
+Clear command explanation ✅
+
+Real DevOps thinking ✅
+
+🔥 INCIDENT 11: Pod Running but No Logs
+🔹 Incident
+Pod is Running
+But kubectl logs shows nothing
+
+🧠 What Happened
+Application not writing logs to stdout
+
+🧪 Troubleshooting
+1️⃣ Check Logs
+kubectl logs <pod-name>
+👉 If empty → app not logging
+
+2️⃣ Enter Pod
+kubectl exec -it <pod-name> -- /bin/sh
+👉 Opens shell inside container
+
+3️⃣ Check Files
+ls /var/log
+👉 Logs might be inside file instead of stdout
+
+🔍 ROOT CAUSE
+❌ Logs not configured for stdout
+
+🧠 One-Line Root Cause
+Logging misconfiguration
+
+🔥 INCIDENT 12: Pod Stuck in Terminating
+🔹 Incident
+Pod not deleting
+
+🧪 Troubleshooting
+1️⃣ Check Pod
+kubectl get pod <pod-name>
+2️⃣ Force Delete
+kubectl delete pod <pod-name> --force --grace-period=0
+👉
+
+--force → immediate delete
+
+--grace-period=0 → no wait
+
+🔍 ROOT CAUSE
+❌ Finalizer / stuck process
+
+🧠 One-Line Root Cause
+Pod stuck during cleanup
+
+🔥 INCIDENT 13: Service Working Internally but Not Externally
+🔹 Incident
+App works inside cluster
+Not from browser
+
+🧪 Troubleshooting
+1️⃣ Check Service Type
+kubectl get svc
+👉 Types:
+
+ClusterIP → internal only
+
+NodePort / LoadBalancer → external
+
+🔍 ROOT CAUSE
+❌ Wrong service type
+
+🧠 One-Line Root Cause
+Service not exposed
+
+🔥 INCIDENT 14: Pod OOMKilled
+🔹 Incident
+Pod terminated with OOMKilled
+
+🧪 Troubleshooting
+1️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Look for:
+
+"OOMKilled"
+
+2️⃣ Check Limits
+kubectl get pod <pod-name> -o yaml
+👉 Look at:
+
+memory limits
+
+🔍 ROOT CAUSE
+❌ Memory limit too low
+
+🧠 One-Line Root Cause
+Out of memory
+
+🔥 INCIDENT 15: Deployment Pods Not Scaling
+🔹 Incident
+Increased replicas
+Pods not increasing
+
+🧪 Troubleshooting
+1️⃣ Check Deployment
+kubectl get deployment
+2️⃣ Describe Deployment
+kubectl describe deployment <name>
+👉 Check events
+
+🔍 ROOT CAUSE
+❌ Resource shortage
+
+🧠 One-Line Root Cause
+Scaling failure
+
+🔥 INCIDENT 16: Pod Cannot Connect to Another Pod
+🔹 Incident
+Service-to-service communication failing
+
+🧪 Troubleshooting
+1️⃣ Test Inside Pod
+kubectl exec -it <pod> -- ping <service-name>
+2️⃣ Check Service
+kubectl get svc
+🔍 ROOT CAUSE
+❌ DNS / service issue
+
+🧠 One-Line Root Cause
+Internal networking issue
+
+🔥 INCIDENT 17: Image Pull Slow
+🔹 Incident
+Pod creation slow
+
+🧪 Troubleshooting
+1️⃣ Describe Pod
+kubectl describe pod <pod-name>
+🔍 ROOT CAUSE
+❌ Large image / slow network
+
+🧠 One-Line Root Cause
+Slow image pull
+
+🔥 INCIDENT 18: Pod Running Old Version After Update
+🔹 Incident
+Updated image
+Old version still running
+
+🧪 Troubleshooting
+1️⃣ Check Image
+kubectl get pod -o wide
+2️⃣ Force Update
+kubectl rollout restart deployment <name>
+🔍 ROOT CAUSE
+❌ Image cache
+
+🧠 One-Line Root Cause
+Old image used
+
+🔥 INCIDENT 19: Node Disk Pressure
+🔹 Incident
+Pods getting evicted
+
+🧪 Troubleshooting
+1️⃣ Describe Node
+kubectl describe node <node>
+👉 Look for:
+
+DiskPressure
+
+🔍 ROOT CAUSE
+❌ Disk full
+
+🧠 One-Line Root Cause
+Node storage issue
+
+🔥 INCIDENT 20: Pod Not Scheduled Due to Taints
+🔹 Incident
+Pod pending
+
+🧪 Troubleshooting
+1️⃣ Describe Node
+kubectl describe node
+👉 Shows taints
+
+🔍 ROOT CAUSE
+❌ Taint mismatch
+
+🧠 One-Line Root Cause
+Scheduling blocked
+
+🔥 INCIDENT 21: Liveness Probe Failing
+🔹 Incident
+Pod restarting
+
+🧪 Troubleshooting
+1️⃣ Describe Pod
+kubectl describe pod <pod-name>
+👉 Look at:
+
+Liveness probe
+
+🔍 ROOT CAUSE
+❌ Health check failing
+
+🧠 One-Line Root Cause
+Probe failure
+
+🔥 INCIDENT 22: Readiness Probe Failing
+🔹 Incident
+Pod running but no traffic
+
+🧪 Troubleshooting
+1️⃣ Check Pod
+kubectl describe pod <pod-name>
+🔍 ROOT CAUSE
+❌ Not ready
+
+🧠 One-Line Root Cause
+Pod not ready
+
+🔥 INCIDENT 23: Secret Not Loaded
+🔹 Incident
+App cannot access credentials
+
+🧪 Troubleshooting
+1️⃣ Check Secrets
+kubectl get secrets
+2️⃣ Describe Pod
+kubectl describe pod <pod-name>
+🔍 ROOT CAUSE
+❌ Secret not mounted
+
+🧠 One-Line Root Cause
+Secret missing
+
+🔥 INCIDENT 24: PVC Not Bound
+🔹 Incident
+Pod stuck pending
+
+🧪 Troubleshooting
+1️⃣ Check PVC
+kubectl get pvc
+🔍 ROOT CAUSE
+❌ Storage issue
+
+🧠 One-Line Root Cause
+Volume not available
+
+🔥 INCIDENT 25: High Pod Memory Usage
+🔹 Incident
+Pod consuming memory
+
+🧪 Troubleshooting
+1️⃣ Check Usage
+kubectl top pod
+🔍 ROOT CAUSE
+❌ Memory leak
+
+🧠 One-Line Root Cause
+High memory
+
+🔥 INCIDENT 26: Namespace Issue
+🔹 Incident
+Resources not visible
+
+🧪 Troubleshooting
+1️⃣ Check Namespace
+kubectl get pods -n <namespace>
+🔍 ROOT CAUSE
+❌ Wrong namespace
+
+🧠 One-Line Root Cause
+Namespace mismatch
+
+🔥 INCIDENT 27: Ingress Not Working
+🔹 Incident
+Domain not routing
+
+🧪 Troubleshooting
+1️⃣ Check Ingress
+kubectl get ingress
+🔍 ROOT CAUSE
+❌ Misconfigured ingress
+
+🧠 One-Line Root Cause
+Routing issue
+
+🔥 INCIDENT 28: Pod Not Starting Due to Init Container
+🔹 Incident
+Pod stuck initializing
+
+🧪 Troubleshooting
+1️⃣ Check Init Containers
+kubectl describe pod <pod-name>
+🔍 ROOT CAUSE
+❌ Init failure
+
+🧠 One-Line Root Cause
+Init container failed
+
+🔥 INCIDENT 29: Cluster DNS Not Working
+🔹 Incident
+Pods cannot resolve service names
+
+🧪 Troubleshooting
+1️⃣ Test DNS
+kubectl exec -it <pod> -- nslookup kubernetes.default
+🔍 ROOT CAUSE
+❌ CoreDNS issue
+
+🧠 One-Line Root Cause
+DNS failure
+
+🔥 INCIDENT 30: API Server Not Responding
+🔹 Incident
+kubectl commands not working
+
+🧪 Troubleshooting
+1️⃣ Check Cluster
+kubectl cluster-info
+🔍 ROOT CAUSE
+❌ API server down
+
+🧠 One-Line Root Cause
+Control plane issue
+
+🚀🔥 YOU COMPLETED 30 KUBERNETES INCIDENTS
+👉 This is real DevOps / Kubernetes troubleshooting level
+👉 Enough for interviews + job readiness
+
+🎯 NEXT STEP (VERY IMPORTANT)
+Say:
+
+👉 "k8s interview questions"
+👉 "k8s hands-on lab"
+👉 "aws incidents"
+
+💡 My strong suggestion:
+👉 Now do hands-on lab — that’s what companies expect 🚀
+
+
