@@ -1,0 +1,6614 @@
+🔥 INCIDENT 12: Disk Full → Application Crash
+🔹 Incident Summary
+
+Application suddenly stopped working.
+
+Users getting:
+
+500 Internal Server Error
+
+or
+
+Application unavailable
+
+Server is UP.
+
+SSH works.
+
+Application is DOWN.
+
+🧠 What Actually Happened (Simple Story)
+
+Application continuously writes:
+
+Logs
+Temp files
+Cache files
+
+Disk reached:
+
+100% Used
+
+Now application cannot write new data.
+
+Application crashes.
+
+🔄 Real Workflow
+Users → Application
+              ↓
+          Write Logs
+              ↓
+         Disk 100% Full
+              ↓
+       Application Crash
+🧪 Step-by-Step Troubleshooting
+1️⃣ Login Server
+ssh ec2-user@server-ip
+2️⃣ Check Disk Usage
+df -h
+
+Example:
+
+/dev/xvda1  20G  20G  0G  100%
+
+Problem found.
+
+3️⃣ Find Large Directories
+du -sh /*
+
+or
+
+du -sh /var/*
+4️⃣ Find Large Files
+find / -type f -size +500M
+5️⃣ Check Logs
+cd /var/log
+du -sh *
+
+Often:
+
+app.log = 15GB
+🔍 ROOT CAUSE
+
+Most common:
+
+Log rotation missing
+Huge application logs
+Backup files accumulating
+Temp files not cleaned
+✅ QUICK FIX
+
+Delete old logs:
+
+rm -f app.log.old
+
+or
+
+truncate -s 0 app.log
+
+Restart application:
+
+systemctl restart myapp
+🛡️ PERMANENT FIX
+
+Install logrotate:
+
+yum install logrotate -y
+
+Configure:
+
+/etc/logrotate.d/myapp
+
+Increase EBS volume if needed.
+
+🎯 Interview Answer
+
+"When application crashes unexpectedly, I first check disk utilization using df -h. If the filesystem is full, I identify large files using du and find commands. After clearing space and restarting the application, I implement log rotation and monitoring to prevent recurrence."
+
+🔥 INCIDENT 13: App UP but Database DOWN
+🔹 Incident Summary
+
+Application URL opens.
+
+Login fails.
+
+Transactions fail.
+
+Backend database unavailable.
+
+🧠 What Actually Happened
+
+Frontend application is running.
+
+Database service stopped.
+
+Application cannot fetch data.
+
+🧪 Troubleshooting
+
+Check application logs:
+
+tail -100 app.log
+
+Error:
+
+Connection refused
+
+Check DB server:
+
+systemctl status mysql
+
+or
+
+systemctl status postgresql
+
+Check DB port:
+
+netstat -tulnp | grep 3306
+
+Test connectivity:
+
+telnet db-server 3306
+🔍 ROOT CAUSE
+
+Possible reasons:
+
+DB service stopped
+Disk full
+DB crash
+Security Group blocked
+✅ QUICK FIX
+
+Start DB:
+
+systemctl start mysql
+🛡️ PERMANENT FIX
+
+Enable auto restart:
+
+systemctl enable mysql
+
+Monitor using CloudWatch.
+
+🎯 Interview Answer
+
+"I verify application logs first. Then I check database service status, port availability and network connectivity. Once database service is restored, I validate application functionality."
+
+🔥 INCIDENT 14: High CPU Usage → Application Slow
+🔹 Incident Summary
+
+Users report:
+
+Application extremely slow
+
+Server accessible.
+
+🧪 Troubleshooting
+
+Check CPU:
+
+top
+
+or
+
+htop
+
+Check process:
+
+ps -eo pid,ppid,cmd,%cpu --sort=-%cpu
+🔍 ROOT CAUSE
+
+Common causes:
+
+Infinite loop
+Traffic spike
+Bad query
+CPU-intensive cron job
+✅ QUICK FIX
+
+Kill bad process:
+
+kill -9 PID
+🛡️ PERMANENT FIX
+
+Enable Auto Scaling.
+
+Optimize code.
+
+Monitor CPU using CloudWatch.
+
+🎯 Interview Answer
+
+"I identify the process consuming CPU using top and ps commands. Then I analyze logs and application behavior before terminating the process or scaling infrastructure."
+
+🔥 INCIDENT 15: Memory Leak → OOM Kill
+🔹 Incident Summary
+
+Application randomly stops.
+
+After restart works fine.
+
+Again crashes later.
+
+🧪 Troubleshooting
+
+Check memory:
+
+free -m
+
+Check process memory:
+
+top
+
+Kernel logs:
+
+dmesg | grep -i kill
+
+Example:
+
+Killed process 4567 java
+🔍 ROOT CAUSE
+
+Application continuously consumes memory.
+
+Kernel triggers:
+
+OOM Killer
+✅ QUICK FIX
+
+Restart application.
+
+🛡️ PERMANENT FIX
+
+Increase memory.
+
+Fix application leak.
+
+Configure JVM limits.
+
+🎯 Interview Answer
+
+"I verify memory consumption using free and top commands. Then I check dmesg for OOM events and identify leaking processes."
+
+🔥 INCIDENT 16: Load Balancer UP but Target DOWN
+🔹 Incident Summary
+
+ALB URL not working.
+
+Backend instances unhealthy.
+
+🧪 Troubleshooting
+
+AWS Console:
+
+Target Group → Health Check
+
+Check:
+
+curl localhost:8080/health
+🔍 ROOT CAUSE
+
+Health check endpoint failing.
+
+Application stopped.
+
+Port mismatch.
+
+✅ QUICK FIX
+
+Restart application.
+
+Correct target port.
+
+🛡️ PERMANENT FIX
+
+Implement proper health endpoints.
+
+CloudWatch alarms.
+
+🎯 Interview Answer
+
+"I check target group health status, verify application ports and health check URLs, then restore unhealthy instances."
+
+🔥 INCIDENT 17: Jenkins Pipeline Success but Changes Not Visible
+🔹 Incident Summary
+
+Build successful.
+
+Deployment successful.
+
+Old version still visible.
+
+🧪 Troubleshooting
+
+Check deployment:
+
+kubectl get pods
+
+Check image:
+
+kubectl describe pod
+🔍 ROOT CAUSE
+
+Common causes:
+
+Browser cache
+CDN cache
+Old image tag
+Deployment not updated
+✅ QUICK FIX
+
+Restart deployment:
+
+kubectl rollout restart deployment app
+🛡️ PERMANENT FIX
+
+Use unique image tags.
+
+Example:
+
+app:v101
+app:v102
+🎯 Interview Answer
+
+"I verify the deployment version, image tags and pod status. Most cases are due to image caching or deployment not actually updating."
+
+🔥 INCIDENT 18: Docker Image Pull Fails
+🔹 Incident Summary
+
+Container deployment fails.
+
+Error:
+
+ImagePullBackOff
+🧪 Troubleshooting
+kubectl describe pod app
+
+Check:
+
+Failed to pull image
+
+Check Docker Hub:
+
+docker pull myimage:v1
+🔍 ROOT CAUSE
+Wrong image name
+Wrong tag
+Registry permission issue
+✅ QUICK FIX
+
+Correct image name.
+
+Create image pull secret.
+
+🛡️ PERMANENT FIX
+
+Store registry credentials securely.
+
+🎯 Interview Answer
+
+"I inspect pod events and validate image existence and registry access before redeploying."
+
+🔥 INCIDENT 19: Kubernetes Pod CrashLoopBackOff
+🔹 Incident Summary
+
+Pod continuously restarting.
+
+🧪 Troubleshooting
+
+Check pods:
+
+kubectl get pods
+
+Check logs:
+
+kubectl logs pod-name
+
+Check events:
+
+kubectl describe pod pod-name
+🔍 ROOT CAUSE
+
+Common:
+
+Application crash
+Wrong config
+Missing secret
+Port conflict
+✅ QUICK FIX
+
+Fix configuration.
+
+Redeploy.
+
+🛡️ PERMANENT FIX
+
+Health checks.
+
+Monitoring.
+
+Proper testing.
+
+🎯 Interview Answer
+
+"I inspect logs and pod events to identify why the container exits and then correct the configuration or application issue."
+
+🔥 INCIDENT 20: ConfigMap / Secret Not Loaded
+🔹 Incident Summary
+
+Application starts.
+
+But configuration missing.
+
+Database connection fails.
+
+🧪 Troubleshooting
+
+Check ConfigMap:
+
+kubectl get configmap
+
+Check Secret:
+
+kubectl get secrets
+
+Check Pod:
+
+kubectl describe pod app
+
+Verify environment variables:
+
+kubectl exec -it pod-name -- env
+🔍 ROOT CAUSE
+Wrong key
+Wrong namespace
+Secret missing
+✅ QUICK FIX
+
+Recreate ConfigMap.
+
+Restart deployment.
+
+kubectl rollout restart deployment app
+🛡️ PERMANENT FIX
+
+Use GitOps validation.
+
+Automated deployment checks.
+
+🎯 Interview Answer
+
+"I verify ConfigMaps, Secrets and environment variables inside the pod. Most failures occur due to namespace mismatch or incorrect key names."
+
+🔥 INCIDENT 21: Service UP but Pod Not Reachable
+🔹 Incident Summary
+
+Application Service exists.
+
+kubectl get svc
+
+Output:
+
+app-service   ClusterIP   10.100.10.20
+
+Service is UP.
+
+But application is NOT accessible.
+
+🧠 What Actually Happened
+
+Service is forwarding traffic.
+
+But Service cannot find the Pod.
+
+Usually:
+
+Wrong labels
+Wrong selectors
+Wrong targetPort
+🔄 Real Workflow
+User
+ ↓
+Service
+ ↓
+❌ No Matching Pod
+ ↓
+Application Down
+🧪 Step-by-Step Troubleshooting
+Check Service
+kubectl get svc
+kubectl describe svc app-service
+Check Endpoints
+kubectl get endpoints
+
+Output:
+
+app-service <none>
+
+❌ Problem Found
+
+Check Labels
+kubectl get pods --show-labels
+Check Service Selector
+kubectl describe svc app-service
+
+Example:
+
+selector:
+ app=frontend
+
+Pod Label:
+
+app=web
+
+❌ Mismatch
+
+🔍 ROOT CAUSE
+
+Service selector does not match Pod labels.
+
+✅ QUICK FIX
+
+Correct selector.
+
+selector:
+ app: web
+
+Apply:
+
+kubectl apply -f service.yaml
+🛡️ PERMANENT FIX
+
+Use standard naming conventions.
+
+Validate manifests before deployment.
+
+🎯 Interview Answer
+
+"I first check Service endpoints. If endpoints are empty, I compare Service selectors with Pod labels and correct mismatches."
+
+🔥 INCIDENT 22: Ingress UP but Application Not Working
+🔹 Incident Summary
+
+Ingress created successfully.
+
+kubectl get ingress
+
+Users get:
+
+404 Not Found
+🧠 What Actually Happened
+
+Ingress Controller is working.
+
+Routing configuration is incorrect.
+
+🧪 Troubleshooting
+
+Check Ingress:
+
+kubectl describe ingress app-ingress
+
+Check Service:
+
+kubectl get svc
+
+Check Backend Pods:
+
+kubectl get pods
+
+Test Service:
+
+curl service-ip:8080
+🔍 ROOT CAUSE
+
+Common Causes:
+
+Wrong path
+Wrong host
+Wrong service name
+✅ QUICK FIX
+
+Correct Ingress Rule.
+
+paths:
+ - path: /
+🛡️ PERMANENT FIX
+
+Automated testing before deployment.
+
+🎯 Interview Answer
+
+"I verify ingress rules, backend service mappings and pod health. Most issues are due to incorrect service names or path definitions."
+
+🔥 INCIDENT 23: SSL Certificate Expired
+🔹 Incident Summary
+
+Users see:
+
+Your connection is not private
+
+Website inaccessible.
+
+🧠 What Actually Happened
+
+SSL certificate validity expired.
+
+Browser blocks access.
+
+🧪 Troubleshooting
+
+Check Certificate:
+
+openssl s_client -connect myapp.com:443
+
+Check Expiry:
+
+openssl x509 -enddate -noout -in cert.pem
+
+Output:
+
+notAfter=Jan 10 2026
+
+Expired.
+
+🔍 ROOT CAUSE
+
+Certificate renewal missed.
+
+✅ QUICK FIX
+
+Renew certificate.
+
+For Let's Encrypt:
+
+certbot renew
+
+Restart Nginx:
+
+systemctl restart nginx
+🛡️ PERMANENT FIX
+
+Enable auto-renewal.
+
+CloudWatch expiry alerts.
+
+🎯 Interview Answer
+
+"I verify certificate expiration using OpenSSL commands and renew the certificate immediately, then configure automatic renewal."
+
+🔥 INCIDENT 24: DNS Issue → Application Not Reachable
+🔹 Incident Summary
+
+Application running.
+
+Server healthy.
+
+Domain not working.
+
+🧠 What Actually Happened
+
+DNS record is missing or incorrect.
+
+Users cannot resolve domain.
+
+🧪 Troubleshooting
+
+DNS Lookup:
+
+nslookup myapp.com
+
+or
+
+dig myapp.com
+
+Check Route53:
+
+A Record
+CNAME Record
+🔍 ROOT CAUSE
+Wrong IP
+Missing record
+DNS propagation delay
+✅ QUICK FIX
+
+Update DNS record.
+
+Wait propagation.
+
+🛡️ PERMANENT FIX
+
+DNS monitoring.
+
+Route53 health checks.
+
+🎯 Interview Answer
+
+"I verify DNS resolution using nslookup and dig, validate Route53 records and update incorrect entries."
+
+🔥 INCIDENT 25: Kubernetes Node NotReady
+🔹 Incident Summary
+
+Pods not scheduling.
+
+Node status:
+
+NotReady
+🧪 Troubleshooting
+
+Check Nodes:
+
+kubectl get nodes
+
+Describe Node:
+
+kubectl describe node worker-1
+
+Check Kubelet:
+
+systemctl status kubelet
+
+Check Disk:
+
+df -h
+🔍 ROOT CAUSE
+
+Common:
+
+Kubelet stopped
+Disk full
+Memory pressure
+Network issue
+✅ QUICK FIX
+
+Restart kubelet.
+
+systemctl restart kubelet
+🛡️ PERMANENT FIX
+
+Node monitoring.
+
+Auto-healing.
+
+🎯 Interview Answer
+
+"I inspect node conditions and kubelet logs, identify the resource or connectivity issue and restore node health."
+
+🔥 INCIDENT 26: Pod Stuck in Pending State
+🔹 Incident Summary
+
+Pod never starts.
+
+Status:
+
+Pending
+🧪 Troubleshooting
+
+Describe Pod:
+
+kubectl describe pod app
+
+Check Nodes:
+
+kubectl get nodes
+
+Check Resources:
+
+kubectl top nodes
+🔍 ROOT CAUSE
+
+Common:
+
+No available resources
+Node selector mismatch
+PVC issue
+✅ QUICK FIX
+
+Increase node capacity.
+
+Fix scheduling rules.
+
+🛡️ PERMANENT FIX
+
+Cluster autoscaling.
+
+Capacity planning.
+
+🎯 Interview Answer
+
+"I use kubectl describe pod to identify scheduling failures and then address resource, node selector or storage issues."
+
+🔥 INCIDENT 27: CI/CD Rollback Failed
+🔹 Incident Summary
+
+Deployment failed.
+
+Rollback attempted.
+
+Rollback also failed.
+
+Production impacted.
+
+🧪 Troubleshooting
+
+Check Deployment History:
+
+kubectl rollout history deployment app
+
+Rollback:
+
+kubectl rollout undo deployment app
+
+Jenkins Logs:
+
+Build History
+Console Output
+🔍 ROOT CAUSE
+Previous image deleted
+Rollback version unavailable
+Broken deployment manifest
+✅ QUICK FIX
+
+Deploy last stable image manually.
+
+🛡️ PERMANENT FIX
+
+Maintain artifact retention.
+
+Version control releases.
+
+🎯 Interview Answer
+
+"I verify deployment history, identify the last stable release and redeploy it manually if automated rollback fails."
+
+🔥 INCIDENT 28: Health Endpoint Failing
+🔹 Incident Summary
+
+Pods restarting repeatedly.
+
+Health checks failing.
+
+🧪 Troubleshooting
+
+Check Endpoint:
+
+curl localhost:8080/health
+
+Check Pod:
+
+kubectl describe pod app
+
+Check Logs:
+
+kubectl logs app
+🔍 ROOT CAUSE
+Database dependency unavailable
+Wrong endpoint path
+Slow startup
+✅ QUICK FIX
+
+Correct health endpoint configuration.
+
+🛡️ PERMANENT FIX
+
+Separate readiness and liveness probes.
+
+🎯 Interview Answer
+
+"I validate the health endpoint manually and verify probe configuration to identify why Kubernetes marks the pod unhealthy."
+
+🔥 INCIDENT 29: CronJob Not Running
+🔹 Incident Summary
+
+Scheduled backup not executed.
+
+Reports missing.
+
+🧪 Troubleshooting
+
+Check CronJob:
+
+kubectl get cronjobs
+
+Describe:
+
+kubectl describe cronjob backup
+
+Check Jobs:
+
+kubectl get jobs
+
+Check Logs:
+
+kubectl logs job-name
+🔍 ROOT CAUSE
+Wrong cron expression
+Failed container image
+Permission issue
+✅ QUICK FIX
+
+Correct schedule.
+
+Rerun job.
+
+🛡️ PERMANENT FIX
+
+CronJob monitoring alerts.
+
+🎯 Interview Answer
+
+"I inspect CronJob schedules, generated jobs and container logs to determine why the scheduled task did not execute."
+
+🔥 INCIDENT 30: Inode Full Issue
+🔹 Incident Summary
+
+Disk has free space.
+
+Application still cannot write files.
+
+🧠 What Actually Happened
+
+Storage blocks available.
+
+Inodes exhausted.
+
+No new files can be created.
+
+🧪 Troubleshooting
+
+Check Disk:
+
+df -h
+
+Looks Fine.
+
+Check Inodes:
+
+df -i
+
+Output:
+
+IUse% 100%
+
+Problem Found.
+
+Find Small Files:
+
+find / -type f | wc -l
+
+Large Count Directory:
+
+find /var/log -type f | wc -l
+🔍 ROOT CAUSE
+
+Millions of tiny files generated.
+
+Log rotation missing.
+
+Application bug.
+
+✅ QUICK FIX
+
+Delete unwanted files.
+
+rm -rf old_logs/*
+🛡️ PERMANENT FIX
+
+Configure cleanup jobs.
+
+Log rotation.
+
+Monitoring alerts.
+
+🎯 Interview Answer
+
+"If disk space is available but applications still fail to create files, I immediately check inode usage using df -i. After identifying directories with excessive small files, I clean them and implemented automated maintance.
+
+🔥 INCIDENT 31: Jenkins Job Stuck
+🔹 Incident Summary
+
+Developer triggered build.
+
+Build never starts.
+
+Status shows:
+
+Pending
+Waiting for Executor
+
+Application deployment delayed.
+
+🧠 What Actually Happened
+
+Jenkins received the build request.
+
+But no executor is available.
+
+All agents are busy.
+
+🔄 Real Workflow
+GitHub Push
+      ↓
+Jenkins Job Triggered
+      ↓
+No Executor Available
+      ↓
+Build Stuck
+🧪 Step-by-Step Troubleshooting
+Check Build Queue
+Manage Jenkins
+→ Build Queue
+Check Executors
+Manage Jenkins
+→ Nodes
+Check Agent Status
+systemctl status jenkins-agent
+Check Disk
+df -h
+🔍 ROOT CAUSE
+
+Common Causes:
+
+No free executors
+Jenkins agent offline
+Disk full
+Memory issue
+✅ QUICK FIX
+
+Restart Agent:
+
+systemctl restart jenkins-agent
+
+Increase executors.
+
+🛡️ PERMANENT FIX
+
+Add more Jenkins agents.
+
+Monitor queue length.
+
+🎯 Interview Answer
+
+"I first check the Jenkins queue and agent status. Most stuck jobs occur due to unavailable executors or offline build agents."
+
+🔥 INCIDENT 32: Wrong Environment Configuration in PROD
+🔹 Incident Summary
+
+Deployment successful.
+
+Application starts.
+
+Production users getting errors.
+
+🧠 What Actually Happened
+
+Production deployed with QA configuration.
+
+Wrong database endpoint used.
+
+🧪 Troubleshooting
+
+Check Environment Variables:
+
+printenv
+
+Kubernetes:
+
+kubectl describe pod app
+
+Check ConfigMap:
+
+kubectl get configmap
+🔍 ROOT CAUSE
+Wrong ConfigMap
+Wrong Secret
+Incorrect Jenkins variables
+✅ QUICK FIX
+
+Update configuration.
+
+Restart application.
+
+🛡️ PERMANENT FIX
+
+Separate DEV/QA/PROD pipelines.
+
+Approval before PROD deployment.
+
+🎯 Interview Answer
+
+"I verify environment variables, ConfigMaps and deployment parameters. Most production issues occur because QA configurations are deployed accidentally."
+
+🔥 INCIDENT 33: API Timeout Between Services
+🔹 Incident Summary
+
+Frontend working.
+
+Backend APIs timing out.
+
+Users see loading screen forever.
+
+🧠 What Actually Happened
+
+Service A calls Service B.
+
+Service B responds very slowly.
+
+Timeout occurs.
+
+🧪 Troubleshooting
+
+Test API:
+
+curl -v http://service-b/api
+
+Check Logs:
+
+tail -100 app.log
+
+Network Check:
+
+telnet service-b 8080
+🔍 ROOT CAUSE
+Network latency
+Database slowness
+API overload
+✅ QUICK FIX
+
+Restart unhealthy service.
+
+Scale application.
+
+🛡️ PERMANENT FIX
+
+Circuit breaker.
+
+API monitoring.
+
+🎯 Interview Answer
+
+"I test connectivity and response time between services, then identify whether the bottleneck is network, application or database related."
+
+🔥 INCIDENT 34: Too Many Open Files Error
+🔹 Incident Summary
+
+Application crashes.
+
+Logs show:
+
+Too many open files
+🧪 Troubleshooting
+
+Check Limits:
+
+ulimit -n
+
+Check Open Files:
+
+lsof | wc -l
+
+Check Process:
+
+lsof -p <PID>
+🔍 ROOT CAUSE
+
+Application opens files but never closes them.
+
+File descriptor limit reached.
+
+✅ QUICK FIX
+
+Increase limit:
+
+ulimit -n 65535
+
+Restart application.
+
+🛡️ PERMANENT FIX
+
+Fix application code.
+
+Update limits.conf.
+
+🎯 Interview Answer
+
+"I check file descriptor usage with lsof and increase limits temporarily, then investigate the application for resource leaks."
+
+🔥 INCIDENT 35: Secrets Exposed Accidentally
+🔹 Incident Summary
+
+AWS keys found in GitHub repository.
+
+Security incident raised.
+
+🧠 What Actually Happened
+
+Developer committed credentials.
+
+Repository pushed publicly.
+
+🧪 Troubleshooting
+
+Search Repository:
+
+git log
+
+Check Secrets:
+
+grep -r "AWS_SECRET" .
+🔍 ROOT CAUSE
+
+Secrets stored in source code.
+
+✅ QUICK FIX
+
+Immediately rotate credentials.
+
+Remove secrets.
+
+🛡️ PERMANENT FIX
+
+Use:
+
+AWS Secrets Manager
+Kubernetes Secrets
+Jenkins Credentials
+
+Enable GitHub Secret Scanning.
+
+🎯 Interview Answer
+
+"I rotate exposed credentials immediately, remove them from repositories and move secret management to secure services."
+
+🔥 INCIDENT 36: Auto Scaling Not Working
+🔹 Incident Summary
+
+Traffic increased.
+
+CPU reached 90%.
+
+No new instances launched.
+
+🧪 Troubleshooting
+
+Check ASG:
+
+Auto Scaling Groups
+
+Check CloudWatch Alarm.
+
+Check Scaling Policy.
+
+🔍 ROOT CAUSE
+Alarm not attached
+Wrong threshold
+Policy disabled
+✅ QUICK FIX
+
+Correct scaling policy.
+
+Attach alarm.
+
+🛡️ PERMANENT FIX
+
+Regular ASG testing.
+
+Monitoring.
+
+🎯 Interview Answer
+
+"I verify CloudWatch alarms, scaling policies and ASG activity history to determine why scaling was not triggered."
+
+🔥 INCIDENT 37: Deployment Success but Old Code Still Running
+🔹 Incident Summary
+
+Jenkins deployment successful.
+
+Users still see old version.
+
+🧠 What Actually Happened
+
+New deployment executed.
+
+Old containers still serving traffic.
+
+🧪 Troubleshooting
+
+Check Deployment:
+
+kubectl rollout status deployment app
+
+Check Image:
+
+kubectl describe pod
+
+Check Browser Cache.
+
+🔍 ROOT CAUSE
+Image cache
+Old pods running
+CDN cache
+✅ QUICK FIX
+
+Restart Deployment:
+
+kubectl rollout restart deployment app
+🛡️ PERMANENT FIX
+
+Use unique image tags.
+
+Avoid latest tag.
+
+🎯 Interview Answer
+
+"I validate the deployed image version and ensure traffic is routed to updated pods rather than cached or older instances."
+
+🔥 INCIDENT 38: Terraform Apply Destroyed Resources Accidentally
+🔹 Incident Summary
+
+Engineer ran:
+
+terraform apply
+
+Production resources destroyed.
+
+🧠 What Actually Happened
+
+Terraform detected configuration changes requiring replacement.
+
+Apply executed without review.
+
+🧪 Troubleshooting
+
+Check Plan:
+
+terraform plan
+
+Check State:
+
+terraform state list
+
+Review Git Changes.
+
+🔍 ROOT CAUSE
+Wrong variable
+Wrong module
+State drift
+✅ QUICK FIX
+
+Restore from backup.
+
+Recreate resources.
+
+🛡️ PERMANENT FIX
+
+Mandatory plan review.
+
+Approval workflow.
+
+🎯 Interview Answer
+
+"I always review terraform plan before apply. If accidental destruction occurs, I verify state and restore resources using backups and version control."
+
+🔥 INCIDENT 39: Docker Container Exits Immediately
+🔹 Incident Summary
+
+Container starts.
+
+Immediately stops.
+
+🧪 Troubleshooting
+
+Check Containers:
+
+docker ps -a
+
+Check Logs:
+
+docker logs container-id
+
+Inspect Image:
+
+docker inspect container-id
+🔍 ROOT CAUSE
+Wrong CMD
+Missing file
+Application crash
+✅ QUICK FIX
+
+Correct startup command.
+
+Rebuild image.
+
+🛡️ PERMANENT FIX
+
+Validate image during CI pipeline.
+
+🎯 Interview Answer
+
+"I inspect container logs and startup commands. Most immediate exits happen because the main process crashes or CMD is incorrect."
+
+🔥 INCIDENT 40: AWS Security Group Blocking Application
+🔹 Incident Summary
+
+Application running.
+
+Users cannot access website.
+
+🧠 What Actually Happened
+
+Application listening on port.
+
+Security Group blocking traffic.
+
+🧪 Troubleshooting
+
+Check Port:
+
+netstat -tulnp
+
+Check Security Group:
+
+Inbound Rules
+
+Verify:
+
+80
+443
+8080
+
+Test Connectivity:
+
+telnet server-ip 80
+🔍 ROOT CAUSE
+
+Missing inbound rule.
+
+Wrong CIDR block.
+
+✅ QUICK FIX
+
+Allow required ports.
+
+Example:
+
+TCP 80
+TCP 443
+🛡️ PERMANENT FIX
+
+Infrastructure as Code.
+
+Periodic SG audits.
+
+🎯 Interview Answer
+
+"I verify application ports first, then inspect Security Group inbound rules. Many connectivity issues occur because the application is healthy but network access is blocked."
+
+🔥 INCIDENT 41: Jenkins Build Fails Due to Disk Full
+🔹 Incident Summary
+
+Developer triggered Jenkins build.
+
+Build failed suddenly.
+
+Error:
+
+No space left on device
+🧠 What Actually Happened
+
+Jenkins stores:
+
+Workspace files
+Build artifacts
+Logs
+Docker images
+
+Disk reached:
+
+100% Used
+
+Jenkins could not create new files.
+
+🔄 Real Workflow
+GitHub Push
+      ↓
+Jenkins Build
+      ↓
+Disk Full
+      ↓
+Build Failed
+🧪 Step-by-Step Troubleshooting
+Check Disk
+df -h
+Check Jenkins Workspace
+du -sh /var/lib/jenkins/*
+Check Docker Images
+docker images
+Check Build History
+du -sh /var/lib/jenkins/jobs/*
+🔍 ROOT CAUSE
+Old builds not cleaned
+Docker images accumulated
+Artifact storage full
+✅ QUICK FIX
+
+Delete unused images:
+
+docker system prune -a
+
+Delete old workspaces.
+
+🛡️ PERMANENT FIX
+
+Configure Build Discarder.
+
+Automate cleanup jobs.
+
+CloudWatch disk alerts.
+
+🎯 Interview Answer
+
+"I check disk usage first using df -h. If Jenkins storage is full, I clean old workspaces, artifacts and Docker images, then implement retention policies."
+
+🔥 INCIDENT 42: Terraform State File Locked
+🔹 Incident Summary
+
+Terraform Apply failed.
+
+Error:
+
+Error acquiring state lock
+🧠 What Actually Happened
+
+Another Terraform operation already locked the state.
+
+Terraform prevents corruption.
+
+🧪 Troubleshooting
+
+Check Lock Details:
+
+terraform apply
+
+Error shows lock ID.
+
+Check DynamoDB Lock Table.
+
+Verify active Terraform process.
+
+🔍 ROOT CAUSE
+Another engineer running apply
+Previous apply interrupted
+Lock not released
+✅ QUICK FIX
+
+Unlock carefully:
+
+terraform force-unlock LOCK_ID
+🛡️ PERMANENT FIX
+
+Use S3 + DynamoDB backend.
+
+Avoid concurrent applies.
+
+🎯 Interview Answer
+
+"I verify whether another Terraform operation is running before using force-unlock. Locking prevents state corruption."
+
+🔥 INCIDENT 43: Kubernetes Pod OOMKilled
+🔹 Incident Summary
+
+Pod restarts continuously.
+
+Status:
+
+OOMKilled
+🧠 What Actually Happened
+
+Container exceeded memory limit.
+
+Kubernetes terminated it.
+
+🧪 Troubleshooting
+
+Check Pod:
+
+kubectl describe pod app
+
+Check Resource Usage:
+
+kubectl top pod
+
+Check Logs:
+
+kubectl logs pod-name --previous
+🔍 ROOT CAUSE
+Memory leak
+Memory limit too low
+Unexpected workload spike
+✅ QUICK FIX
+
+Increase memory limit.
+
+Restart deployment.
+
+🛡️ PERMANENT FIX
+
+Optimize application memory usage.
+
+Set proper requests and limits.
+
+🎯 Interview Answer
+
+"I check pod events and resource usage. If memory consumption exceeds limits, Kubernetes kills the container and I adjust resources accordingly."
+
+🔥 INCIDENT 44: Docker Image Works Locally But Not On Server
+🔹 Incident Summary
+
+Developer tested image locally.
+
+Works perfectly.
+
+Fails in production server.
+
+🧠 What Actually Happened
+
+Local environment differs from server.
+
+Dependencies missing.
+
+🧪 Troubleshooting
+
+Check Container Logs:
+
+docker logs container-id
+
+Check Environment Variables:
+
+docker exec -it container-id env
+
+Compare:
+
+docker inspect image-name
+🔍 ROOT CAUSE
+ENV mismatch
+Missing configuration
+Architecture mismatch
+✅ QUICK FIX
+
+Correct environment variables.
+
+Rebuild image.
+
+🛡️ PERMANENT FIX
+
+Use same environment across DEV and PROD.
+
+🎯 Interview Answer
+
+"I compare runtime environments and validate logs. Most issues occur because local and production configurations differ."
+
+🔥 INCIDENT 45: AWS Auto Scaling Not Triggering
+🔹 Incident Summary
+
+Traffic increased dramatically.
+
+CPU reached 95%.
+
+No new EC2 instances launched.
+
+🧪 Troubleshooting
+
+Check ASG Activity:
+
+Auto Scaling → Activity History
+
+Check CloudWatch Alarm.
+
+Check Scaling Policy.
+
+🔍 ROOT CAUSE
+Alarm misconfigured
+Scaling policy disabled
+Wrong metric
+✅ QUICK FIX
+
+Attach correct CloudWatch alarm.
+
+🛡️ PERMANENT FIX
+
+Perform ASG testing regularly.
+
+🎯 Interview Answer
+
+"I validate CloudWatch alarms, metrics and scaling policies to determine why Auto Scaling failed."
+
+🔥 INCIDENT 46: Jenkins Pipeline Stuck at Docker Push
+🔹 Incident Summary
+
+Build successful.
+
+Docker build successful.
+
+Pipeline hangs during:
+
+docker push
+🧪 Troubleshooting
+
+Verify Login:
+
+docker login
+
+Test Push:
+
+docker push image:tag
+
+Check Jenkins Credentials.
+
+Check Network:
+
+ping docker.io
+🔍 ROOT CAUSE
+Registry authentication failure
+Network issue
+Docker Hub rate limit
+✅ QUICK FIX
+
+Reconfigure credentials.
+
+Retry push.
+
+🛡️ PERMANENT FIX
+
+Use private registry.
+
+Credential rotation.
+
+🎯 Interview Answer
+
+"I verify Docker registry authentication, connectivity and Jenkins credentials before investigating registry-side issues."
+
+🔥 INCIDENT 47: Kubernetes Service Working Internally But Not Externally
+🔹 Incident Summary
+
+Pods can access service.
+
+External users cannot.
+
+🧠 What Actually Happened
+
+Cluster networking works.
+
+External exposure misconfigured.
+
+🧪 Troubleshooting
+
+Check Service Type:
+
+kubectl get svc
+
+Output:
+
+ClusterIP
+
+Check Ingress:
+
+kubectl get ingress
+
+Check NodePort:
+
+kubectl describe svc
+🔍 ROOT CAUSE
+ClusterIP used instead of LoadBalancer
+Ingress issue
+Security Group block
+✅ QUICK FIX
+
+Change Service:
+
+type: LoadBalancer
+🛡️ PERMANENT FIX
+
+Standardize exposure patterns.
+
+🎯 Interview Answer
+
+"I verify whether the service is exposed externally using LoadBalancer, NodePort or Ingress and identify networking issues."
+
+🔥 INCIDENT 48: Terraform Created Duplicate Resources
+🔹 Incident Summary
+
+Unexpected duplicate EC2 instances appeared.
+
+Infrastructure cost increased.
+
+🧠 What Actually Happened
+
+Terraform lost track of resources.
+
+New resources created.
+
+🧪 Troubleshooting
+
+Check State:
+
+terraform state list
+
+Compare AWS Console.
+
+Check Backend:
+
+terraform init
+🔍 ROOT CAUSE
+State file missing
+Wrong workspace
+Manual state changes
+✅ QUICK FIX
+
+Import existing resources:
+
+terraform import
+🛡️ PERMANENT FIX
+
+Remote backend.
+
+State protection.
+
+🎯 Interview Answer
+
+"I compare Terraform state with actual resources and import unmanaged infrastructure to prevent duplication."
+
+🔥 INCIDENT 49: Application Slow Due to EBS Burst Balance Exhausted
+🔹 Incident Summary
+
+Application becomes very slow.
+
+CPU normal.
+
+Memory normal.
+
+🧠 What Actually Happened
+
+EBS burst credits exhausted.
+
+Disk I/O performance dropped drastically.
+
+🧪 Troubleshooting
+
+Check CloudWatch Metrics:
+
+BurstBalance
+
+Check I/O Wait:
+
+iostat -x
+
+Check Disk Activity:
+
+top
+🔍 ROOT CAUSE
+
+Heavy disk operations consumed burst credits.
+
+✅ QUICK FIX
+
+Upgrade EBS volume.
+
+Reduce I/O workload.
+
+🛡️ PERMANENT FIX
+
+Use gp3 volumes.
+
+Monitor BurstBalance.
+
+🎯 Interview Answer
+
+"I check CloudWatch BurstBalance metrics and disk I/O statistics. Exhausted burst credits often cause application slowness."
+
+🔥 INCIDENT 50: Database Connection Limit Reached
+🔹 Incident Summary
+
+Application suddenly unable to connect.
+
+Error:
+
+Too many connections
+🧠 What Actually Happened
+
+Database reached maximum allowed connections.
+
+New requests rejected.
+
+🧪 Troubleshooting
+
+MySQL:
+
+SHOW PROCESSLIST;
+
+Check Limits:
+
+SHOW VARIABLES LIKE 'max_connections';
+
+Check Application Logs:
+
+tail -100 app.log
+🔍 ROOT CAUSE
+Connection leak
+Traffic spike
+Small connection pool
+✅ QUICK FIX
+
+Kill idle sessions.
+
+Increase:
+
+max_connections
+
+Restart DB if required.
+
+🛡️ PERMANENT FIX
+
+Use connection pooling.
+
+Optimize application queries.
+
+Monitor DB connections.
+
+🎯 Interview Answer
+
+"I check active database sessions and max connection limits. Most issues occur because connections are not properly released by the application.
+
+🔥 INCIDENT 51: Kubernetes etcd Disk Full
+🔹 Incident Summary
+
+Cluster suddenly becomes unstable.
+
+Commands fail:
+
+kubectl get pods
+
+Error:
+
+etcdserver: mvcc: database space exceeded
+🧠 What Actually Happened
+
+etcd stores:
+
+Pods
+Deployments
+Secrets
+ConfigMaps
+
+Over time etcd database grew.
+
+Disk became full.
+
+Control Plane stopped responding.
+
+🔄 Real Workflow
+Kubernetes API
+        ↓
+      etcd
+        ↓
+Disk Full
+        ↓
+API Failure
+        ↓
+Cluster Unstable
+🧪 Step-by-Step Troubleshooting
+
+Check Disk:
+
+df -h
+
+Check etcd Size:
+
+etcdctl endpoint status --write-out=table
+
+Check Logs:
+
+journalctl -u etcd
+🔍 ROOT CAUSE
+
+Common Causes:
+
+Too many events
+Too many secrets
+No etcd compaction
+✅ QUICK FIX
+
+Compact etcd:
+
+etcdctl compact <revision>
+
+Defrag:
+
+etcdctl defrag
+🛡️ PERMANENT FIX
+
+Automated compaction.
+
+Monitor etcd growth.
+
+🎯 Interview Answer
+
+"I verify etcd health and storage usage. If etcd space is exhausted, I perform compaction and defragmentation to restore cluster functionality."
+
+🔥 INCIDENT 52: API Server High Latency
+🔹 Incident Summary
+
+kubectl commands are very slow.
+
+Deployments take several minutes.
+
+🧠 What Actually Happened
+
+API Server overloaded.
+
+Requests queue up.
+
+Cluster response becomes slow.
+
+🧪 Troubleshooting
+
+Check API Server Logs:
+
+journalctl -u kube-apiserver
+
+Check CPU:
+
+top
+
+Check Metrics:
+
+kubectl top nodes
+🔍 ROOT CAUSE
+High API requests
+etcd latency
+CPU exhaustion
+✅ QUICK FIX
+
+Scale control plane.
+
+Reduce API calls.
+
+🛡️ PERMANENT FIX
+
+HA control plane.
+
+API monitoring.
+
+🎯 Interview Answer
+
+"I investigate API server resource utilization and etcd performance because both are major contributors to Kubernetes control plane latency."
+
+🔥 INCIDENT 53: Terraform Drift Due to Manual Changes
+🔹 Incident Summary
+
+Terraform shows unexpected changes.
+
+Infrastructure doesn't match code.
+
+🧠 What Actually Happened
+
+Engineer manually modified AWS resources.
+
+Terraform state and AWS became different.
+
+🧪 Troubleshooting
+
+Run:
+
+terraform plan
+
+Refresh State:
+
+terraform refresh
+
+Compare AWS Console.
+
+🔍 ROOT CAUSE
+
+Manual changes outside Terraform.
+
+✅ QUICK FIX
+
+Import or update Terraform code.
+
+terraform import
+🛡️ PERMANENT FIX
+
+Infrastructure changes only through Terraform.
+
+🎯 Interview Answer
+
+"I compare Terraform state with actual infrastructure and eliminate manual changes to maintain Infrastructure as Code consistency."
+
+🔥 INCIDENT 54: Docker Layer Cache Causing Old Code Deployment
+🔹 Incident Summary
+
+New deployment completed.
+
+Application still shows old functionality.
+
+🧠 What Actually Happened
+
+Docker reused old build layers.
+
+New code wasn't included.
+
+🧪 Troubleshooting
+
+Build Again:
+
+docker build .
+
+Check Image History:
+
+docker history image-name
+
+Build Without Cache:
+
+docker build --no-cache -t app:v2 .
+🔍 ROOT CAUSE
+
+Docker layer cache reused.
+
+✅ QUICK FIX
+
+Build without cache.
+
+🛡️ PERMANENT FIX
+
+Use proper Dockerfile ordering.
+
+Unique image tags.
+
+🎯 Interview Answer
+
+"I verify image layers and rebuild using --no-cache when I suspect cached layers are causing outdated deployments."
+
+🔥 INCIDENT 55: AWS ALB Returning 502 Bad Gateway
+🔹 Incident Summary
+
+Application inaccessible.
+
+Users receive:
+
+502 Bad Gateway
+🧠 What Actually Happened
+
+ALB received request.
+
+Backend target failed.
+
+🧪 Troubleshooting
+
+Check Target Health:
+
+Target Groups → Health
+
+Check Application:
+
+curl localhost:8080
+
+Check Port:
+
+netstat -tulnp
+🔍 ROOT CAUSE
+Application stopped
+Wrong target port
+Health check failure
+✅ QUICK FIX
+
+Restart backend application.
+
+Correct target group settings.
+
+🛡️ PERMANENT FIX
+
+Health monitoring.
+
+Auto recovery.
+
+🎯 Interview Answer
+
+"I validate ALB target health and backend application availability. Most 502 errors occur when the load balancer cannot communicate with healthy targets."
+
+🔥 INCIDENT 56: Kubernetes Node Memory Pressure
+🔹 Incident Summary
+
+Pods randomly evicted.
+
+Node status shows:
+
+MemoryPressure=True
+🧠 What Actually Happened
+
+Node memory almost exhausted.
+
+Kubernetes starts evicting pods.
+
+🧪 Troubleshooting
+
+Check Nodes:
+
+kubectl describe node worker-1
+
+Check Usage:
+
+kubectl top node
+
+Check Pods:
+
+kubectl top pods
+🔍 ROOT CAUSE
+High memory usage
+Missing resource limits
+Memory leak
+✅ QUICK FIX
+
+Drain workload.
+
+Scale nodes.
+
+🛡️ PERMANENT FIX
+
+Resource requests and limits.
+
+Cluster Autoscaler.
+
+🎯 Interview Answer
+
+"I inspect node conditions and pod resource usage. Memory pressure usually indicates insufficient capacity or memory leaks."
+
+🔥 INCIDENT 57: Jenkins Agent Not Connecting
+🔹 Incident Summary
+
+Builds remain pending.
+
+Agent status:
+
+Offline
+🧠 What Actually Happened
+
+Jenkins Master cannot communicate with agent.
+
+🧪 Troubleshooting
+
+Check Service:
+
+systemctl status jenkins-agent
+
+Check Connectivity:
+
+ping jenkins-master
+
+Check Logs:
+
+journalctl -u jenkins-agent
+🔍 ROOT CAUSE
+Network issue
+Agent service stopped
+Authentication failure
+✅ QUICK FIX
+
+Restart Agent:
+
+systemctl restart jenkins-agent
+🛡️ PERMANENT FIX
+
+Agent monitoring.
+
+Automatic recovery.
+
+🎯 Interview Answer
+
+"I validate network connectivity, agent service health and authentication between Jenkins controller and agents."
+
+🔥 INCIDENT 58: Kubernetes Deployment Rollback Failed
+🔹 Incident Summary
+
+New release failed.
+
+Rollback also failed.
+
+Production outage continues.
+
+🧠 What Actually Happened
+
+Previous ReplicaSet unavailable.
+
+Rollback version missing.
+
+🧪 Troubleshooting
+
+Check History:
+
+kubectl rollout history deployment app
+
+Check ReplicaSets:
+
+kubectl get rs
+
+Rollback:
+
+kubectl rollout undo deployment app
+🔍 ROOT CAUSE
+Old ReplicaSet deleted
+Bad deployment strategy
+✅ QUICK FIX
+
+Deploy known stable image manually.
+
+🛡️ PERMANENT FIX
+
+Retain deployment history.
+
+Maintain image repository.
+
+🎯 Interview Answer
+
+"I review rollout history and ReplicaSets. If rollback cannot proceed automatically, I redeploy the last stable image version."
+
+🔥 INCIDENT 59: AWS RDS Storage Full
+🔹 Incident Summary
+
+Application errors suddenly increase.
+
+Database writes fail.
+
+🧠 What Actually Happened
+
+RDS storage reached maximum capacity.
+
+New records cannot be inserted.
+
+🧪 Troubleshooting
+
+Check RDS Metrics:
+
+FreeStorageSpace
+
+Check Database Logs.
+
+Check Tables:
+
+SHOW TABLE STATUS;
+🔍 ROOT CAUSE
+Storage exhausted
+Log growth
+Backup retention
+✅ QUICK FIX
+
+Increase storage size.
+
+Delete unnecessary data.
+
+🛡️ PERMANENT FIX
+
+Storage monitoring.
+
+Automated scaling.
+
+🎯 Interview Answer
+
+"I review RDS storage metrics and database growth patterns, then increase storage and implement monitoring before capacity is exhausted."
+
+🔥 INCIDENT 60: High Network Latency Between Pods
+🔹 Incident Summary
+
+Microservices are slow.
+
+APIs timeout intermittently.
+
+🧠 What Actually Happened
+
+Pod-to-Pod communication became slow.
+
+Network traffic delayed.
+
+🧪 Troubleshooting
+
+Test Connectivity:
+
+kubectl exec -it pod-a -- ping pod-b
+
+Check DNS:
+
+nslookup service-name
+
+Check Network Policies:
+
+kubectl get networkpolicy
+
+Check Node Utilization:
+
+kubectl top nodes
+🔍 ROOT CAUSE
+Network congestion
+DNS delays
+CNI plugin issues
+Cross-zone traffic
+✅ QUICK FIX
+
+Restart affected pods.
+
+Check CNI health.
+
+🛡️ PERMANENT FIX
+
+Network monitoring.
+
+Optimize service communication.
+
+🎯 Interview Answer
+
+"I test connectivity, DNS resolution and node utilization to identify whether latency originates from networking, DNS or infrastructure bottlenecks
+
+
+🔥 INCIDENT 61: Pod Stuck in Terminating State
+🔹 Incident Summary
+
+Developer deleted pod.
+
+Pod remains:
+
+Terminating
+
+for several minutes or hours.
+
+New deployment blocked.
+
+🧠 What Actually Happened
+
+Kubernetes sent SIGTERM.
+
+Application did not exit gracefully.
+
+Pod cannot be removed.
+
+🔄 Real Workflow
+kubectl delete pod
+          ↓
+      SIGTERM Sent
+          ↓
+Application Not Exiting
+          ↓
+Pod Stuck in Terminating
+🧪 Step-by-Step Troubleshooting
+Check Pod
+kubectl get pod
+Describe Pod
+kubectl describe pod app-pod
+Check Finalizers
+kubectl get pod app-pod -o yaml
+
+Look for:
+
+finalizers:
+- kubernetes
+Force Delete
+kubectl delete pod app-pod --grace-period=0 --force
+🔍 ROOT CAUSE
+
+Common Causes:
+
+Application hanging
+Finalizer issue
+Volume unmount problem
+Node communication issue
+✅ QUICK FIX
+
+Force delete pod.
+
+🛡️ PERMANENT FIX
+
+Proper shutdown handling.
+
+Monitor stuck pods.
+
+🎯 Interview Answer
+
+"I inspect pod events and finalizers. If graceful termination fails, I identify the blocking resource and force-delete the pod if required."
+
+🔥 INCIDENT 62: IAM Role Not Attached to EC2
+🔹 Incident Summary
+
+Application on EC2 cannot access S3.
+
+Error:
+
+AccessDenied
+🧠 What Actually Happened
+
+EC2 instance launched.
+
+Required IAM role missing.
+
+AWS API requests denied.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Identity:
+
+aws sts get-caller-identity
+
+Check Instance Profile:
+
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
+
+Output:
+
+No IAM Role Found
+🔍 ROOT CAUSE
+
+IAM role never attached.
+
+✅ QUICK FIX
+
+Attach IAM Role from AWS Console.
+
+Or:
+
+EC2 → Actions → Security → Modify IAM Role
+🛡️ PERMANENT FIX
+
+Attach IAM roles via Terraform.
+
+Avoid access keys.
+
+🎯 Interview Answer
+
+"I verify the EC2 instance profile and attached IAM role. Missing roles are a common reason for AWS service access failures."
+
+🔥 INCIDENT 63: PVC Not Binding
+🔹 Incident Summary
+
+Pod remains:
+
+Pending
+
+PVC status:
+
+Pending
+🧠 What Actually Happened
+
+Pod requested storage.
+
+No matching Persistent Volume available.
+
+🧪 Step-by-Step Troubleshooting
+
+Check PVC:
+
+kubectl get pvc
+
+Describe PVC:
+
+kubectl describe pvc app-pvc
+
+Check PV:
+
+kubectl get pv
+🔍 ROOT CAUSE
+StorageClass missing
+PV unavailable
+Size mismatch
+Access mode mismatch
+✅ QUICK FIX
+
+Create matching PV.
+
+Correct StorageClass.
+
+🛡️ PERMANENT FIX
+
+Dynamic provisioning.
+
+Storage monitoring.
+
+🎯 Interview Answer
+
+"I compare PVC requirements with available PVs and StorageClasses. Binding failures are usually caused by storage mismatches."
+
+🔥 INCIDENT 64: CPU Throttling in Kubernetes
+🔹 Incident Summary
+
+Application slow.
+
+CPU usage appears normal.
+
+Users report latency.
+
+🧠 What Actually Happened
+
+Container exceeded CPU limit.
+
+Kubernetes throttled CPU access.
+
+Application became slow.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Resource Limits:
+
+kubectl describe pod app
+
+Check Usage:
+
+kubectl top pod
+
+Check Metrics:
+
+kubectl top nodes
+🔍 ROOT CAUSE
+
+CPU limit too low.
+
+✅ QUICK FIX
+
+Increase CPU limit.
+
+Example:
+
+resources:
+ limits:
+   cpu: "2"
+🛡️ PERMANENT FIX
+
+Capacity planning.
+
+Performance testing.
+
+🎯 Interview Answer
+
+"I review pod resource limits and usage metrics. CPU throttling often occurs when limits are configured too aggressively."
+
+🔥 INCIDENT 65: Route53 DNS Not Resolving
+🔹 Incident Summary
+
+Website inaccessible.
+
+Domain not resolving.
+
+🧠 What Actually Happened
+
+DNS records missing or incorrect.
+
+Users cannot reach application.
+
+🧪 Step-by-Step Troubleshooting
+
+Check DNS:
+
+nslookup myapp.com
+
+Check:
+
+dig myapp.com
+
+Verify Route53 Records:
+
+Hosted Zone
+A Record
+CNAME Record
+🔍 ROOT CAUSE
+Wrong record
+Wrong Name Server
+DNS propagation
+✅ QUICK FIX
+
+Correct Route53 records.
+
+🛡️ PERMANENT FIX
+
+DNS monitoring.
+
+Health checks.
+
+🎯 Interview Answer
+
+"I validate Route53 records, name servers and DNS propagation using dig and nslookup before investigating application issues."
+
+🔥 INCIDENT 66: Jenkins Pipeline Running Old Branch
+🔹 Incident Summary
+
+Developer pushed latest code.
+
+Pipeline deployed older version.
+
+🧠 What Actually Happened
+
+Jenkins checked out wrong branch.
+
+Deployment used stale code.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Console Output.
+
+Verify Branch:
+
+git branch
+
+Check Jenkinsfile:
+
+branch: 'main'
+
+Verify SCM Configuration.
+
+🔍 ROOT CAUSE
+Wrong branch configured
+Workspace cache
+SCM configuration issue
+✅ QUICK FIX
+
+Clean Workspace:
+
+rm -rf workspace/*
+
+Rebuild.
+
+🛡️ PERMANENT FIX
+
+Branch validation in pipeline.
+
+🎯 Interview Answer
+
+"I review SCM configuration and console logs to confirm which branch Jenkins actually checked out before deployment."
+
+🔥 INCIDENT 67: Terraform Backend S3 Not Accessible
+🔹 Incident Summary
+
+Terraform initialization fails.
+
+Error:
+
+AccessDenied
+🧠 What Actually Happened
+
+Terraform cannot access backend bucket.
+
+State unavailable.
+
+🧪 Step-by-Step Troubleshooting
+
+Initialize:
+
+terraform init
+
+Verify Bucket:
+
+aws s3 ls
+
+Check Identity:
+
+aws sts get-caller-identity
+🔍 ROOT CAUSE
+IAM permission missing
+Bucket policy issue
+Wrong backend configuration
+✅ QUICK FIX
+
+Grant S3 access.
+
+Correct backend configuration.
+
+🛡️ PERMANENT FIX
+
+Dedicated Terraform IAM role.
+
+🎯 Interview Answer
+
+"I validate IAM permissions, backend configuration and bucket accessibility because Terraform depends entirely on backend state access."
+
+🔥 INCIDENT 68: Kubernetes Ingress Redirect Loop
+🔹 Incident Summary
+
+Browser error:
+
+ERR_TOO_MANY_REDIRECTS
+
+Website inaccessible.
+
+🧠 What Actually Happened
+
+Ingress redirects traffic repeatedly.
+
+Request never reaches application.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Ingress:
+
+kubectl describe ingress
+
+Check Nginx Config.
+
+Verify TLS Settings.
+
+Test:
+
+curl -I https://myapp.com
+🔍 ROOT CAUSE
+HTTP → HTTPS loop
+Wrong redirect rule
+TLS misconfiguration
+✅ QUICK FIX
+
+Correct redirect rules.
+
+🛡️ PERMANENT FIX
+
+Ingress testing before release.
+
+🎯 Interview Answer
+
+"I inspect ingress annotations, TLS configuration and redirect rules to identify circular redirects."
+
+🔥 INCIDENT 69: AWS EC2 Status Check Failed
+🔹 Incident Summary
+
+EC2 unreachable.
+
+Application down.
+
+AWS Console shows:
+
+Status Check Failed
+🧠 What Actually Happened
+
+Instance encountered hardware or OS issue.
+
+AWS health checks failed.
+
+🧪 Step-by-Step Troubleshooting
+
+Check:
+
+Instance Status Checks
+
+Review System Logs:
+
+EC2 → Monitor and Troubleshoot → Get System Log
+
+Check Volume Health.
+
+🔍 ROOT CAUSE
+OS corruption
+Kernel panic
+Hardware issue
+Disk corruption
+✅ QUICK FIX
+
+Reboot instance.
+
+Detach and attach volume if needed.
+
+🛡️ PERMANENT FIX
+
+Auto Recovery.
+
+Regular backups.
+
+🎯 Interview Answer
+
+"I determine whether the failure is a system status check or instance status check and then investigate operating system, storage or hardware issues."
+
+🔥 INCIDENT 70: Production Down After Bad Deployment
+🔹 Incident Summary
+
+New deployment completed.
+
+Immediately production went down.
+
+Users unable to access application.
+
+🚨 SEV-1 INCIDENT
+
+🧠 What Actually Happened
+
+New release introduced:
+
+Bug
+Wrong configuration
+Missing environment variable
+Database issue
+
+Production outage occurred.
+
+🔄 Real Workflow
+Developer Commit
+        ↓
+GitHub
+        ↓
+Jenkins Pipeline
+        ↓
+Deployment
+        ↓
+Bad Release
+        ↓
+Production Down
+🧪 Step-by-Step Troubleshooting
+
+Check Deployment:
+
+kubectl get deployments
+
+Check Pods:
+
+kubectl get pods
+
+Check Logs:
+
+kubectl logs pod-name
+
+Check Events:
+
+kubectl describe pod pod-name
+
+Rollback:
+
+kubectl rollout undo deployment app
+🔍 ROOT CAUSE
+
+Common Causes:
+
+Application bug
+Wrong image
+ConfigMap issue
+Secret issue
+Database migration failure
+✅ QUICK FIX
+
+Rollback immediately:
+
+kubectl rollout undo deployment app
+
+Deploy last stable version.
+
+🛡️ PERMANENT FIX
+Blue-Green Deployment
+Canary Deployment
+Automated Testing
+Approval Gates
+Monitoring Alerts
+🎯 Interview Answer
+
+"In a production outage after deployment, my first priority is service restoration. I quickly identify whether the issue is code, configuration or infrastructure related and immediately rollback to the last stable version. After recovery, I perform root cause analysis and implement preventive measures such as canary deployments and automated testing."
+
+🔥 INCIDENT 71: Kubernetes Deployment Stuck in Progressing State
+🔹 Incident Summary
+
+New deployment triggered.
+
+Pods not becoming Ready.
+
+Deployment never completes.
+
+kubectl rollout status deployment app
+
+Output:
+
+Waiting for deployment rollout to finish
+🧠 What Actually Happened
+
+New pods created.
+
+Pods fail readiness checks.
+
+Old pods cannot terminate.
+
+Deployment remains stuck.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Deployment:
+
+kubectl get deployment
+
+Check Pods:
+
+kubectl get pods
+
+Describe Deployment:
+
+kubectl describe deployment app
+
+Check Events:
+
+kubectl get events --sort-by=.metadata.creationTimestamp
+🔍 ROOT CAUSE
+Readiness probe failing
+Resource shortage
+Image issue
+Node problem
+✅ QUICK FIX
+
+Fix readiness issue.
+
+Restart deployment.
+
+kubectl rollout restart deployment app
+🛡️ PERMANENT FIX
+
+Proper health checks.
+
+Deployment validation.
+
+🎯 Interview Answer
+
+"I verify deployment events, pod readiness and rollout status. Most progressing issues occur because new pods never become Ready."
+
+🔥 INCIDENT 72: EKS Worker Node Suddenly Disappeared
+🔹 Incident Summary
+
+Application performance degraded.
+
+Several pods moved unexpectedly.
+
+Node missing from cluster.
+
+🧠 What Actually Happened
+
+Worker node terminated.
+
+Node became unreachable.
+
+Pods rescheduled elsewhere.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Nodes:
+
+kubectl get nodes
+
+Check EC2:
+
+aws ec2 describe-instances
+
+Check ASG:
+
+Auto Scaling Group Activity
+🔍 ROOT CAUSE
+EC2 terminated
+ASG issue
+Spot instance interruption
+✅ QUICK FIX
+
+Launch replacement node.
+
+Rejoin cluster.
+
+🛡️ PERMANENT FIX
+
+Multi-node architecture.
+
+Node monitoring.
+
+🎯 Interview Answer
+
+"I check node status, Auto Scaling activity and EC2 health to determine why the worker node disappeared."
+
+🔥 INCIDENT 73: GitHub Webhook Not Triggering Jenkins
+🔹 Incident Summary
+
+Code pushed successfully.
+
+Pipeline never started.
+
+🧠 What Actually Happened
+
+GitHub sent webhook.
+
+Jenkins never received it.
+
+CI/CD stopped.
+
+🧪 Step-by-Step Troubleshooting
+
+Check GitHub:
+
+Repository
+→ Settings
+→ Webhooks
+
+Check Delivery Logs.
+
+Check Jenkins Logs:
+
+tail -100 /var/log/jenkins/jenkins.log
+
+Test Webhook URL:
+
+curl http://jenkins-server/github-webhook/
+🔍 ROOT CAUSE
+Wrong webhook URL
+Firewall issue
+Secret mismatch
+✅ QUICK FIX
+
+Reconfigure webhook.
+
+Restart Jenkins.
+
+🛡️ PERMANENT FIX
+
+Webhook monitoring.
+
+Periodic testing.
+
+🎯 Interview Answer
+
+"I verify GitHub webhook delivery logs and Jenkins webhook endpoint accessibility to identify trigger failures."
+
+🔥 INCIDENT 74: S3 Bucket Accidentally Deleted
+🔹 Incident Summary
+
+Application uploads stopped.
+
+Critical files missing.
+
+🧠 What Actually Happened
+
+Production bucket deleted.
+
+Application lost storage backend.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Bucket:
+
+aws s3 ls
+
+Check CloudTrail:
+
+Event History
+
+Search:
+
+DeleteBucket
+🔍 ROOT CAUSE
+Manual deletion
+Terraform destroy
+Wrong automation script
+✅ QUICK FIX
+
+Restore bucket.
+
+Recover backups.
+
+🛡️ PERMANENT FIX
+
+Enable:
+
+Versioning
+MFA Delete
+🎯 Interview Answer
+
+"I use CloudTrail to identify who deleted the bucket and restore data using backups and versioning."
+
+🔥 INCIDENT 75: Docker Container Restarting Every Few Seconds
+🔹 Incident Summary
+
+Container starts.
+
+Restarts continuously.
+
+🧠 What Actually Happened
+
+Application crashes repeatedly.
+
+Docker restart policy keeps restarting.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Containers:
+
+docker ps
+
+Check Logs:
+
+docker logs container-id
+
+Inspect Container:
+
+docker inspect container-id
+🔍 ROOT CAUSE
+Application error
+Missing config
+Database unreachable
+✅ QUICK FIX
+
+Fix application error.
+
+Restart container.
+
+🛡️ PERMANENT FIX
+
+Health checks.
+
+Pre-deployment testing.
+
+🎯 Interview Answer
+
+"I inspect container logs first because continuous restarts usually indicate application startup failures."
+
+🔥 INCIDENT 76: CloudWatch Alarm Not Sending Notifications
+🔹 Incident Summary
+
+CPU crossed threshold.
+
+Alarm triggered.
+
+No email received.
+
+🧠 What Actually Happened
+
+CloudWatch alarm worked.
+
+SNS notification failed.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Alarm State:
+
+CloudWatch → Alarms
+
+Check SNS Topic:
+
+SNS → Topics
+
+Check Subscription:
+
+Confirmed
+🔍 ROOT CAUSE
+Subscription not confirmed
+Wrong SNS topic
+Email typo
+✅ QUICK FIX
+
+Confirm subscription.
+
+Reattach SNS topic.
+
+🛡️ PERMANENT FIX
+
+Regular alert testing.
+
+🎯 Interview Answer
+
+"I verify alarm actions and SNS subscriptions because alarms often trigger correctly while notifications fail."
+
+🔥 INCIDENT 77: Terraform Apply Hanging Forever
+🔹 Incident Summary
+
+Terraform started.
+
+Never completed.
+
+Terminal appears frozen.
+
+🧠 What Actually Happened
+
+Terraform waiting for resource creation.
+
+AWS resource stuck.
+
+🧪 Step-by-Step Troubleshooting
+
+Enable Logs:
+
+export TF_LOG=DEBUG
+
+Run:
+
+terraform apply
+
+Check AWS Console.
+
+🔍 ROOT CAUSE
+Resource provisioning issue
+Network problem
+API throttling
+✅ QUICK FIX
+
+Cancel operation.
+
+Review resource status.
+
+🛡️ PERMANENT FIX
+
+Proper dependency management.
+
+Monitoring.
+
+🎯 Interview Answer
+
+"I enable Terraform debug logging and compare progress with AWS resource creation status."
+
+🔥 INCIDENT 78: Kubernetes Secret Updated but Application Still Using Old Value
+🔹 Incident Summary
+
+Secret updated successfully.
+
+Application still uses old password.
+
+🧠 What Actually Happened
+
+Secret changed.
+
+Pod never restarted.
+
+Old value remains in memory.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Secret:
+
+kubectl get secret app-secret -o yaml
+
+Check Pod:
+
+kubectl exec -it pod-name -- env
+
+Restart Deployment:
+
+kubectl rollout restart deployment app
+🔍 ROOT CAUSE
+
+Running pods not refreshed.
+
+✅ QUICK FIX
+
+Restart pods.
+
+🛡️ PERMANENT FIX
+
+Secret reload automation.
+
+🎯 Interview Answer
+
+"I verify secret contents and restart affected pods because environment variables are loaded only at container startup."
+
+🔥 INCIDENT 79: RDS Database Suddenly Became Slow
+🔹 Incident Summary
+
+Application latency increased.
+
+Database queries slow.
+
+🧠 What Actually Happened
+
+Database overloaded.
+
+Slow queries consuming resources.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Connections.
+
+SHOW PROCESSLIST;
+
+Check Slow Queries.
+
+SHOW VARIABLES LIKE 'slow_query_log';
+
+Check CloudWatch Metrics.
+
+CPUUtilization
+DatabaseConnections
+ReadIOPS
+WriteIOPS
+🔍 ROOT CAUSE
+Missing indexes
+Long-running queries
+Traffic spike
+✅ QUICK FIX
+
+Kill problematic queries.
+
+Add indexes.
+
+🛡️ PERMANENT FIX
+
+Performance tuning.
+
+Database monitoring.
+
+🎯 Interview Answer
+
+"I review slow queries, active sessions and CloudWatch metrics to identify database bottlenecks."
+
+🔥 INCIDENT 80: Production Database Accidentally Modified
+🔹 Incident Summary
+
+Critical production data changed.
+
+Users reported incorrect records.
+
+🚨 High Severity Incident
+
+🧠 What Actually Happened
+
+Engineer executed update query directly in production.
+
+Data became inconsistent.
+
+🧪 Step-by-Step Troubleshooting
+
+Identify Change:
+
+SHOW PROCESSLIST;
+
+Review Logs:
+
+Database Audit Logs
+
+Check Backup Status.
+
+INCIDENT 81: Kubernetes Deployment Succeeded but Pods Not Ready
+🔹 Incident Summary
+
+Deployment completed successfully.
+
+kubectl get deployment
+
+Output:
+
+AVAILABLE = 0
+READY = 0
+
+Application unavailable.
+
+🧠 What Actually Happened
+
+Deployment object created.
+
+Pods started.
+
+Readiness probe failed.
+
+Traffic never routed to pods.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Pods:
+
+kubectl get pods
+
+Check Readiness:
+
+kubectl describe pod app-pod
+
+Check Logs:
+
+kubectl logs app-pod
+🔍 ROOT CAUSE
+Wrong readiness endpoint
+Application startup failure
+Database connection failure
+✅ QUICK FIX
+
+Fix readiness probe.
+
+Restart deployment.
+
+kubectl rollout restart deployment app
+🛡️ PERMANENT FIX
+
+Validate readiness checks in QA.
+
+🎯 Interview Answer
+
+"I verify pod readiness events and application logs because successful deployment does not guarantee healthy pods."
+
+🔥 INCIDENT 82: EKS Cluster API Unreachable
+🔹 Incident Summary
+
+All kubectl commands failing.
+
+kubectl get pods
+
+Error:
+
+Unable to connect to server
+🧠 What Actually Happened
+
+Kubernetes API endpoint unreachable.
+
+Control Plane communication broken.
+
+🧪 Step-by-Step Troubleshooting
+
+Update kubeconfig:
+
+aws eks update-kubeconfig --name prod-cluster
+
+Check Cluster:
+
+aws eks describe-cluster --name prod-cluster
+
+Verify Security Groups.
+
+🔍 ROOT CAUSE
+API endpoint issue
+Security Group block
+Cluster networking issue
+✅ QUICK FIX
+
+Restore API access.
+
+Update kubeconfig.
+
+🛡️ PERMANENT FIX
+
+Control plane monitoring.
+
+🎯 Interview Answer
+
+"I verify cluster health, endpoint accessibility and kubeconfig configuration before troubleshooting workloads."
+
+🔥 INCIDENT 83: Jenkins Credentials Missing After Restart
+🔹 Incident Summary
+
+Pipeline worked yesterday.
+
+After Jenkins restart:
+
+Credentials Not Found
+
+Build failed.
+
+🧠 What Actually Happened
+
+Credential store corrupted or plugin issue occurred.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Credentials:
+
+Manage Jenkins
+→ Credentials
+
+Check Logs:
+
+journalctl -u jenkins
+
+Check Backup.
+
+🔍 ROOT CAUSE
+Plugin corruption
+Missing backup
+Jenkins home issue
+✅ QUICK FIX
+
+Restore credentials from backup.
+
+🛡️ PERMANENT FIX
+
+Regular Jenkins backups.
+
+🎯 Interview Answer
+
+"I verify Jenkins credential storage and restore from backup if corruption occurs."
+
+🔥 INCIDENT 84: Route53 Record Pointing to Wrong ALB
+🔹 Incident Summary
+
+Users reaching wrong application.
+
+Production URL opening QA environment.
+
+🧠 What Actually Happened
+
+DNS record mapped to incorrect ALB.
+
+Traffic routed incorrectly.
+
+🧪 Step-by-Step Troubleshooting
+
+Check DNS:
+
+nslookup app.company.com
+
+Check Route53 Records.
+
+Check ALB DNS Name.
+
+🔍 ROOT CAUSE
+
+Wrong Route53 configuration.
+
+✅ QUICK FIX
+
+Update Alias Record.
+
+🛡️ PERMANENT FIX
+
+DNS change approval process.
+
+🎯 Interview Answer
+
+"I validate Route53 alias records and confirm traffic is routed to the correct load balancer."
+
+🔥 INCIDENT 85: Docker Volume Filled Up Storage
+🔹 Incident Summary
+
+Container healthy.
+
+Host disk became full.
+
+🧠 What Actually Happened
+
+Docker volume accumulated data.
+
+Storage exhausted.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Volumes:
+
+docker volume ls
+
+Inspect Usage:
+
+du -sh /var/lib/docker/volumes/*
+
+Check Disk:
+
+df -h
+🔍 ROOT CAUSE
+Log accumulation
+Backup accumulation
+Missing cleanup
+✅ QUICK FIX
+
+Delete unused volumes.
+
+docker volume prune
+🛡️ PERMANENT FIX
+
+Retention policies.
+
+Storage monitoring.
+
+🎯 Interview Answer
+
+"I inspect Docker volumes because containers may appear healthy while persistent storage silently consumes disk."
+
+🔥 INCIDENT 86: Terraform Destroy Executed in Production
+🔹 Incident Summary
+
+Engineer accidentally ran:
+
+terraform destroy
+
+Production resources started deleting.
+
+🚨 Critical Incident
+
+🧠 What Actually Happened
+
+Terraform initiated resource destruction.
+
+Production outage risk created.
+
+🧪 Step-by-Step Troubleshooting
+
+Stop Execution Immediately:
+
+Ctrl + C
+
+Review State:
+
+terraform state list
+
+Check CloudTrail.
+
+🔍 ROOT CAUSE
+Human error
+Wrong workspace
+No approval process
+✅ QUICK FIX
+
+Restore infrastructure.
+
+Recover backups.
+
+🛡️ PERMANENT FIX
+
+Protected environments.
+
+Approval workflow.
+
+🎯 Interview Answer
+
+"I immediately stop the operation, assess affected resources and restore infrastructure using state files and backups."
+
+🔥 INCIDENT 87: Kubernetes Namespace Deleted Accidentally
+🔹 Incident Summary
+
+Entire application disappeared.
+
+Pods, services and deployments missing.
+
+🧠 What Actually Happened
+
+Namespace deleted.
+
+Everything inside removed.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Namespaces:
+
+kubectl get ns
+
+Check Audit Logs.
+
+Check GitOps Repository.
+
+🔍 ROOT CAUSE
+
+Accidental namespace deletion.
+
+✅ QUICK FIX
+
+Redeploy manifests.
+
+Restore backups.
+
+🛡️ PERMANENT FIX
+
+RBAC restrictions.
+
+GitOps recovery.
+
+🎯 Interview Answer
+
+"I verify namespace existence and restore workloads from Git repositories or backups."
+
+🔥 INCIDENT 88: ALB Healthy but Application Returning 500 Error
+🔹 Incident Summary
+
+ALB healthy.
+
+Targets healthy.
+
+Application returns:
+
+500 Internal Server Error
+🧠 What Actually Happened
+
+Infrastructure healthy.
+
+Application code failing.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Logs:
+
+kubectl logs app-pod
+
+Test API:
+
+curl localhost:8080
+
+Check Database Connectivity.
+
+🔍 ROOT CAUSE
+Application bug
+Database issue
+Configuration error
+✅ QUICK FIX
+
+Rollback deployment.
+
+🛡️ PERMANENT FIX
+
+Application monitoring.
+
+Testing pipelines.
+
+🎯 Interview Answer
+
+"I isolate infrastructure from application issues. If ALB and targets are healthy, I investigate application logs and dependencies."
+
+🔥 INCIDENT 89: IAM Policy Attached but Access Still Denied
+🔹 Incident Summary
+
+Policy attached.
+
+AWS access still failing.
+
+Error:
+
+AccessDenied
+🧠 What Actually Happened
+
+Policy exists.
+
+But another policy or permission boundary blocks access.
+
+🧪 Step-by-Step Troubleshooting
+
+Check Identity:
+
+aws sts get-caller-identity
+
+Simulate Policy:
+
+IAM Policy Simulator
+
+Review:
+
+Permission Boundary
+SCP
+Explicit Deny
+🔍 ROOT CAUSE
+Explicit Deny
+Wrong role
+SCP restriction
+✅ QUICK FIX
+
+Correct IAM permissions.
+
+🛡️ PERMANENT FIX
+
+IAM review process.
+
+🎯 Interview Answer
+
+"I verify effective permissions because explicit denies always override allowed actions."
+
+🔥 INCIDENT 90: Multi-Service Production Outage
+🔹 Incident Summary
+
+Complete application outage.
+
+Frontend unavailable.
+
+Backend unavailable.
+
+Database overloaded.
+
+🚨 SEV-1 INCIDENT
+
+🧠 What Actually Happened
+
+Multiple failures occurred simultaneously.
+
+One failure triggered cascading failures.
+
+🔄 Real Workflow
+Traffic Spike
+      ↓
+Database Slow
+      ↓
+API Timeout
+      ↓
+Pods Restarting
+      ↓
+Production Down
+🧪 Step-by-Step Troubleshooting
+
+Check Infrastructure:
+
+kubectl get nodes
+
+Check Pods:
+
+kubectl get pods -A
+
+Check Database:
+
+SHOW PROCESSLIST;
+
+Check Load Balancer.
+
+Check CloudWatch Metrics.
+
+🔍 ROOT CAUSE
+Cascading service failure
+Database bottleneck
+Resource exhaustion
+✅ QUICK FIX
+
+Restore critical services first.
+
+Scale infrastructure.
+
+Rollback recent changes.
+
+🛡️ PERMANENT FIX
+Auto Scaling
+Circuit Breakers
+Load Testing
+Disaster Recovery Plans
+Monitoring & Alerting
+🎯 Interview Answer
+
+"In a SEV-1 outage, my first priority is service restoration. I identify the primary failure point, stabilize critical systems and then perform detailed root cause analysis after recovery."
+
+🔥 INCIDENT 91: Blue-Green Deployment Failed During Production Release
+🔹 Incident Summary
+
+Deployment completed successfully.
+
+Traffic switched to Green Environment.
+
+Application immediately failed.
+
+Users unable to access service.
+
+🚨 SEV-1 Incident
+
+🧠 What Actually Happened
+
+Blue Environment = Old Version
+
+Green Environment = New Version
+
+Traffic switched.
+
+New environment had configuration issues.
+
+Entire production traffic routed to broken application.
+
+🧪 Step-by-Step Troubleshooting
+
+Check ALB Target Groups.
+
+Verify Green Pods:
+
+kubectl get pods
+
+Check Logs:
+
+kubectl logs pod-name
+
+Check Health Endpoint:
+
+curl localhost:8080/health
+🔍 ROOT CAUSE
+Missing environment variables
+Wrong database connection
+Image deployment issue
+✅ QUICK FIX
+
+Switch traffic back to Blue Environment.
+
+🛡️ PERMANENT FIX
+
+Smoke testing before traffic switch.
+
+Automated validation.
+
+🎯 Interview Answer
+
+"I immediately route traffic back to the stable Blue environment and investigate the failed Green deployment."
+
+🔥 INCIDENT 92: Terraform State File Corrupted
+🔹 Incident Summary
+
+Terraform commands failing.
+
+Infrastructure state inconsistent.
+
+🧠 What Actually Happened
+
+State file became corrupted.
+
+Terraform lost infrastructure tracking.
+
+🧪 Step-by-Step Troubleshooting
+
+Pull State:
+
+terraform state pull
+
+Validate Backend:
+
+terraform init
+
+Check S3 State Versioning.
+
+🔍 ROOT CAUSE
+Interrupted write operation
+Manual state modification
+Backend corruption
+✅ QUICK FIX
+
+Restore previous state version.
+
+🛡️ PERMANENT FIX
+
+Enable S3 Versioning.
+
+Restrict manual edits.
+
+🎯 Interview Answer
+
+"I restore the last healthy state file and verify infrastructure consistency before running Terraform operations."
+
+🔥 INCIDENT 93: Kubernetes Control Plane Disk Full
+🔹 Incident Summary
+
+Cluster unstable.
+
+New deployments failing.
+
+API response slow.
+
+🧠 What Actually Happened
+
+Master node disk reached 100%.
+
+Control Plane components unable to write data.
+
+🧪 Troubleshooting
+
+Check Disk:
+
+df -h
+
+Check Logs:
+
+journalctl -u kube-apiserver
+
+Check etcd:
+
+etcdctl endpoint status
+🔍 ROOT CAUSE
+Log accumulation
+etcd growth
+Backup files
+✅ QUICK FIX
+
+Free disk space.
+
+Restart services.
+
+🛡️ PERMANENT FIX
+
+Log rotation.
+
+Disk monitoring.
+
+🎯 Interview Answer
+
+"I verify disk utilization and etcd health because Kubernetes control plane components require sufficient storage."
+
+🔥 INCIDENT 94: AWS NAT Gateway Failure
+🔹 Incident Summary
+
+Private EC2 instances lost internet access.
+
+Application unable to download updates.
+
+🧠 What Actually Happened
+
+NAT Gateway failed.
+
+Private subnet lost outbound connectivity.
+
+🧪 Troubleshooting
+
+Check Route Tables.
+
+Check NAT Gateway Status.
+
+Test:
+
+ping google.com
+🔍 ROOT CAUSE
+NAT Gateway deleted
+Route misconfiguration
+Elastic IP issue
+✅ QUICK FIX
+
+Create new NAT Gateway.
+
+Update route table.
+
+🛡️ PERMANENT FIX
+
+Multi-AZ NAT architecture.
+
+🎯 Interview Answer
+
+"I validate NAT Gateway health and route tables because private subnets depend on NAT for internet access."
+
+🔥 INCIDENT 95: Jenkins Master Server Crash
+🔹 Incident Summary
+
+All pipelines stopped.
+
+No builds running.
+
+Jenkins UI unavailable.
+
+🧠 What Actually Happened
+
+Jenkins server crashed.
+
+CI/CD operations halted.
+
+🧪 Troubleshooting
+
+Check Service:
+
+systemctl status jenkins
+
+Check Logs:
+
+journalctl -u jenkins
+
+Check Memory:
+
+free -m
+🔍 ROOT CAUSE
+JVM crash
+Memory exhaustion
+Disk full
+✅ QUICK FIX
+
+Restart Jenkins.
+
+Restore backup if required.
+
+🛡️ PERMANENT FIX
+
+HA Jenkins.
+
+Regular backups.
+
+🎯 Interview Answer
+
+"I restore Jenkins service first and then analyze logs to identify the root cause of the crash."
+
+🔥 INCIDENT 96: Ransomware Attack on Linux Server
+🔹 Incident Summary
+
+Files renamed unexpectedly.
+
+Applications stopped.
+
+Critical data encrypted.
+
+🚨 Security Incident
+
+🧠 What Actually Happened
+
+Malicious software encrypted server files.
+
+Access denied.
+
+🧪 Troubleshooting
+
+Disconnect Server.
+
+Check Running Processes:
+
+ps -ef
+
+Check Open Connections:
+
+netstat -tulnp
+
+Analyze Logs:
+
+journalctl
+🔍 ROOT CAUSE
+Security vulnerability
+Weak credentials
+Unpatched system
+✅ QUICK FIX
+
+Isolate server immediately.
+
+Restore from backup.
+
+🛡️ PERMANENT FIX
+
+Patch management.
+
+Security monitoring.
+
+Immutable backups.
+
+🎯 Interview Answer
+
+"I isolate the affected system first to prevent spread and then recover services using clean backups."
+
+🔥 INCIDENT 97: Kubernetes Cluster Certificate Expired
+🔹 Incident Summary
+
+kubectl commands failing.
+
+Nodes becoming unavailable.
+
+🧠 What Actually Happened
+
+Cluster certificates expired.
+
+Authentication failed.
+
+🧪 Troubleshooting
+
+Check Certificates:
+
+kubeadm certs check-expiration
+
+Renew Certificates:
+
+kubeadm certs renew all
+
+Restart Components.
+
+🔍 ROOT CAUSE
+
+Certificate renewal missed.
+
+✅ QUICK FIX
+
+Renew certificates.
+
+Restart services.
+
+🛡️ PERMANENT FIX
+
+Certificate monitoring alerts.
+
+🎯 Interview Answer
+
+"I verify certificate validity and renew expired certificates before restoring cluster communication."
+
+🔥 INCIDENT 98: EBS Volume Detached Accidentally
+🔹 Incident Summary
+
+Application suddenly stopped.
+
+Data inaccessible.
+
+🧠 What Actually Happened
+
+Storage volume detached.
+
+Application lost access to data.
+
+🧪 Troubleshooting
+
+Check EC2:
+
+lsblk
+
+Check AWS Console:
+
+EC2 → Volumes
+
+Verify Attachment Status.
+
+🔍 ROOT CAUSE
+Manual detachment
+Automation error
+✅ QUICK FIX
+
+Reattach volume.
+
+Mount filesystem.
+
+🛡️ PERMANENT FIX
+
+IAM restrictions.
+
+Automation controls.
+
+🎯 Interview Answer
+
+"I verify volume attachment and restore storage connectivity before bringing applications online."
+
+🔥 INCIDENT 99: Production Database Replica Lag
+🔹 Incident Summary
+
+Users see outdated data.
+
+Read replica not synchronized.
+
+🧠 What Actually Happened
+
+Replica unable to keep up with primary database.
+
+Replication delayed.
+
+🧪 Troubleshooting
+
+Check Replica Lag:
+
+CloudWatch → ReplicaLag
+
+Check Database Load.
+
+🔍 ROOT CAUSE
+High write traffic
+Network latency
+Resource shortage
+✅ QUICK FIX
+
+Scale replica.
+
+Optimize queries.
+
+🛡️ PERMANENT FIX
+
+Capacity planning.
+
+Database monitoring.
+
+🎯 Interview Answer
+
+"I monitor replication lag and database performance metrics to ensure replicas remain synchronized."
+
+🔥 INCIDENT 100: Complete AWS Region Outage
+🔹 Incident Summary
+
+Entire production environment unavailable.
+
+Multiple AWS services affected.
+
+🚨 SEV-0 Incident
+
+🧠 What Actually Happened
+
+AWS Region experienced major outage.
+
+Applications unavailable.
+
+🧪 Troubleshooting
+
+Check AWS Health Dashboard.
+
+Verify secondary region.
+
+Check Route53 failover.
+
+🔍 ROOT CAUSE
+
+Regional infrastructure failure.
+
+✅ QUICK FIX
+
+Failover to DR Region.
+
+🛡️ PERMANENT FIX
+
+Multi-Region Architecture.
+
+Disaster Recovery Testing.
+
+🎯 Interview Answer
+
+"I activate disaster recovery procedures and route traffic to the standby region while monitoring service restoration."
+
+🔥 INCIDENT 101: Kubernetes Namespace Resource Quota Exceeded
+🔹 Incident Summary
+
+New pods fail to start.
+
+Error:
+
+exceeded quota
+🔍 ROOT CAUSE
+
+Namespace resource limits reached.
+
+✅ QUICK FIX
+
+Increase quota or clean resources.
+
+🎯 Interview Answer
+
+"I check ResourceQuota objects and namespace usage before increasing limits."
+
+🔥 INCIDENT 102: GitHub Repository Accidentally Deleted
+🔹 Incident Summary
+
+Developers lost source code access.
+
+CI/CD failed.
+
+🔍 ROOT CAUSE
+
+Repository deleted accidentally.
+
+✅ QUICK FIX
+
+Restore repository from GitHub recovery options or backups.
+
+🎯 Interview Answer
+
+"I restore repository access immediately and verify CI/CD pipeline integrity."
+
+🔥 INCIDENT 103: CloudWatch Agent Stopped Sending Logs
+🔹 Incident Summary
+
+Application running.
+
+No logs visible.
+
+🧪 Troubleshooting
+systemctl status amazon-cloudwatch-agent
+🔍 ROOT CAUSE
+
+Agent stopped or IAM issue.
+
+✅ QUICK FIX
+
+Restart CloudWatch Agent.
+
+🎯 Interview Answer
+
+"I verify agent health, IAM permissions and log configuration."
+
+🔥 INCIDENT 104: ALB SSL Handshake Failure
+🔹 Incident Summary
+
+Users cannot establish HTTPS connection.
+
+🔍 ROOT CAUSE
+
+Expired or invalid certificate.
+
+✅ QUICK FIX
+
+Attach valid ACM certificate.
+
+🎯 Interview Answer
+
+"I validate SSL certificates and ALB listener configuration."
+
+🔥 INCIDENT 105: Kubernetes CNI Plugin Failure
+🔹 Incident Summary
+
+Pods unable to communicate.
+
+🧪 Troubleshooting
+kubectl get pods -n kube-system
+🔍 ROOT CAUSE
+
+CNI crash.
+
+✅ QUICK FIX
+
+Restart CNI components.
+
+🎯 Interview Answer
+
+"I investigate kube-system networking components and restore pod networking."
+
+🔥 INCIDENT 106: IAM Access Key Leaked Publicly
+🔹 Incident Summary
+
+AWS account at risk.
+
+✅ QUICK FIX
+
+Immediately deactivate access key.
+
+Rotate credentials.
+
+🎯 Interview Answer
+
+"I revoke exposed credentials first, then investigate usage through CloudTrail."
+
+🔥 INCIDENT 107: Production Redis Cache Failure
+🔹 Incident Summary
+
+Application response time increased significantly.
+
+🔍 ROOT CAUSE
+
+Redis unavailable.
+
+✅ QUICK FIX
+
+Restore Redis service.
+
+🎯 Interview Answer
+
+"I validate cache health and failover mechanisms."
+
+🔥 INCIDENT 108: Docker Registry Unavailable
+🔹 Incident Summary
+
+Deployments fail.
+
+Images cannot be pulled.
+
+🔍 ROOT CAUSE
+
+Registry outage.
+
+✅ QUICK FIX
+
+Switch to backup registry.
+
+🎯 Interview Answer
+
+"I verify registry availability and use alternate repositories if necessary."
+
+🔥 INCIDENT 109: AWS Load Balancer Cross-Zone Failure
+🔹 Incident Summary
+
+One Availability Zone stopped serving traffic.
+
+🔍 ROOT CAUSE
+
+Cross-zone load balancing disabled.
+
+✅ QUICK FIX
+
+Enable cross-zone balancing.
+
+🎯 Interview Answer
+
+"I verify ALB distribution settings and AZ health."
+
+🔥 INCIDENT 110: Disaster Recovery Failover Test Failed
+🔹 Incident Summary
+
+DR exercise performed.
+
+Failover unsuccessful.
+
+🚨 Critical Readiness Gap
+
+🧪 Troubleshooting
+
+Validate:
+
+Route53 failover
+Database replication
+Backup restoration
+Application startup
+🔍 ROOT CAUSE
+
+DR plan never fully tested.
+
+✅ QUICK FIX
+
+Fix failed components and retest.
+
+🛡️ PERMANENT FIX
+
+Quarterly DR drills.
+
+Automated failover testing.
+
+🎯 Interview Answer
+
+"I treat DR testing as production-critical. Every failover path must be validated regularly to ensure business continuity."
+
+🔥 INCIDENT 111: Kubernetes API Rate Limit Exceeded
+🔹 Incident Summary
+
+Deployments failing randomly.
+
+CI/CD pipelines getting errors.
+
+429 Too Many Requests
+🧠 What Actually Happened
+
+Thousands of API requests sent to Kubernetes API Server.
+
+API Server started throttling requests.
+
+🧪 Step-by-Step Troubleshooting
+
+Check API Logs:
+
+kubectl logs -n kube-system kube-apiserver-master
+
+Check Metrics:
+
+kubectl top nodes
+🔍 ROOT CAUSE
+Excessive automation requests
+Monitoring tools flooding API
+✅ QUICK FIX
+
+Reduce API requests.
+
+Increase API server capacity.
+
+🛡️ PERMANENT FIX
+
+Implement request throttling.
+
+🎯 Interview Answer
+
+"I verify API server metrics and identify clients generating excessive requests."
+
+🔥 INCIDENT 112: Jenkins Plugin Upgrade Broke Pipelines
+🔹 Incident Summary
+
+All Jenkins jobs started failing after plugin update.
+
+🧠 What Actually Happened
+
+New plugin version incompatible with existing pipelines.
+
+🧪 Troubleshooting
+
+Check Plugin Manager.
+
+Review Jenkins Logs:
+
+journalctl -u jenkins
+🔍 ROOT CAUSE
+
+Plugin incompatibility.
+
+✅ QUICK FIX
+
+Rollback plugin version.
+
+🛡️ PERMANENT FIX
+
+Test plugin upgrades in staging.
+
+🎯 Interview Answer
+
+"I review recent Jenkins changes and rollback incompatible plugins."
+
+🔥 INCIDENT 113: EKS Node Group Upgrade Failed
+🔹 Incident Summary
+
+Cluster upgrade initiated.
+
+Several nodes failed to join.
+
+🧠 What Actually Happened
+
+Worker node version incompatible.
+
+Upgrade incomplete.
+
+🧪 Troubleshooting
+kubectl get nodes
+
+Check EKS Upgrade Events.
+
+🔍 ROOT CAUSE
+Version mismatch
+IAM issue
+✅ QUICK FIX
+
+Rollback node group upgrade.
+
+🛡️ PERMANENT FIX
+
+Test upgrades in non-production.
+
+🎯 Interview Answer
+
+"I verify node compatibility and cluster upgrade logs before proceeding."
+
+🔥 INCIDENT 114: Route53 Health Check Failing Incorrectly
+🔹 Incident Summary
+
+Traffic failed over unexpectedly.
+
+Primary application healthy.
+
+🧠 What Actually Happened
+
+Route53 health check endpoint misconfigured.
+
+False failures triggered failover.
+
+🧪 Troubleshooting
+
+Check Health Check Configuration.
+
+Test Endpoint:
+
+curl https://app.com/health
+🔍 ROOT CAUSE
+
+Wrong URL.
+
+Incorrect response code expectation.
+
+✅ QUICK FIX
+
+Update health check configuration.
+
+🛡️ PERMANENT FIX
+
+Validate failover testing.
+
+🎯 Interview Answer
+
+"I compare Route53 health check expectations with actual application responses."
+
+🔥 INCIDENT 115: Kubernetes HPA Not Scaling Pods
+🔹 Incident Summary
+
+CPU reached 95%.
+
+Pods remained unchanged.
+
+🧠 What Actually Happened
+
+HPA unable to read metrics.
+
+Scaling never triggered.
+
+🧪 Troubleshooting
+kubectl get hpa
+kubectl top pods
+
+Check Metrics Server:
+
+kubectl get pods -n kube-system
+🔍 ROOT CAUSE
+
+Metrics Server unavailable.
+
+Wrong HPA configuration.
+
+✅ QUICK FIX
+
+Restart Metrics Server.
+
+🛡️ PERMANENT FIX
+
+Monitor HPA functionality.
+
+🎯 Interview Answer
+
+"I verify metrics availability because HPA depends entirely on metrics data."
+
+🔥 INCIDENT 116: S3 Lifecycle Policy Deleted Critical Files
+🔹 Incident Summary
+
+Application files disappeared unexpectedly.
+
+🧠 What Actually Happened
+
+Lifecycle rule moved/deleted objects.
+
+Production files removed.
+
+🧪 Troubleshooting
+
+Check Lifecycle Policy.
+
+Check Object Versions.
+
+🔍 ROOT CAUSE
+
+Misconfigured lifecycle rule.
+
+✅ QUICK FIX
+
+Restore from versioned objects.
+
+🛡️ PERMANENT FIX
+
+Review lifecycle policies before deployment.
+
+🎯 Interview Answer
+
+"I investigate lifecycle policies and recover files using S3 versioning."
+
+🔥 INCIDENT 117: Docker Host Out of Inodes
+🔹 Incident Summary
+
+Containers unable to create files.
+
+Disk appears available.
+
+🧠 What Actually Happened
+
+Inodes exhausted.
+
+No new files possible.
+
+🧪 Troubleshooting
+df -i
+
+Find Small Files:
+
+find /var/lib/docker -type f | wc -l
+🔍 ROOT CAUSE
+
+Millions of tiny container files.
+
+✅ QUICK FIX
+
+Clean unused containers.
+
+🛡️ PERMANENT FIX
+
+Docker cleanup automation.
+
+🎯 Interview Answer
+
+"I check inode utilization whenever storage appears available but file creation fails."
+
+🔥 INCIDENT 118: CloudWatch Billing Alarm Not Triggered
+🔹 Incident Summary
+
+AWS bill increased dramatically.
+
+No alerts received.
+
+🧠 What Actually Happened
+
+Billing alarm misconfigured.
+
+Threshold never reached according to alarm settings.
+
+🧪 Troubleshooting
+
+Check Billing Alarms.
+
+Check SNS Topic.
+
+🔍 ROOT CAUSE
+
+Wrong threshold value.
+
+✅ QUICK FIX
+
+Correct alarm configuration.
+
+🛡️ PERMANENT FIX
+
+Monthly billing reviews.
+
+🎯 Interview Answer
+
+"I validate alarm thresholds and SNS delivery configuration."
+
+🔥 INCIDENT 119: GitHub Branch Protection Misconfiguration
+🔹 Incident Summary
+
+Developers unable to merge code.
+
+🧠 What Actually Happened
+
+Branch protection rules became too restrictive.
+
+🧪 Troubleshooting
+
+Review:
+
+Repository → Settings → Branch Protection
+🔍 ROOT CAUSE
+
+Required checks incorrectly configured.
+
+✅ QUICK FIX
+
+Adjust protection rules.
+
+🛡️ PERMANENT FIX
+
+Document repository governance.
+
+🎯 Interview Answer
+
+"I review branch protection policies and required checks before changing permissions."
+
+🔥 INCIDENT 120: AWS Security Group Deleted Accidentally
+🔹 Incident Summary
+
+Multiple applications became inaccessible.
+
+🧠 What Actually Happened
+
+Security Group removed.
+
+Traffic blocked.
+
+🧪 Troubleshooting
+
+Check EC2 Network Configuration.
+
+Review CloudTrail Events.
+
+🔍 ROOT CAUSE
+
+Manual deletion.
+
+Terraform misconfiguration.
+
+✅ QUICK FIX
+
+Restore Security Group.
+
+🛡️ PERMANENT FIX
+
+IaC governance and approvals.
+
+🎯 Interview Answer
+
+"I identify impacted resources and restore required network access immediately."
+
+🔥 INCIDENT 121: Kubernetes Scheduler Failure
+🔹 Incident Summary
+
+New pods remain Pending.
+
+Cluster has available resources.
+
+🔍 ROOT CAUSE
+
+Scheduler stopped.
+
+🧪 Troubleshooting
+kubectl get pods -n kube-system
+
+Check scheduler logs.
+
+✅ QUICK FIX
+
+Restart kube-scheduler.
+
+🎯 Interview Answer
+
+"I verify scheduler health whenever pods remain pending unexpectedly."
+
+🔥 INCIDENT 122: Terraform Module Version Conflict
+🔹 Incident Summary
+
+Terraform plan suddenly failing.
+
+🔍 ROOT CAUSE
+
+Different module versions causing dependency conflicts.
+
+✅ QUICK FIX
+
+Pin module versions.
+
+🎯 Interview Answer
+
+"I standardize module versions and verify compatibility."
+
+🔥 INCIDENT 123: Production Redis Memory Full
+🔹 Incident Summary
+
+Cache writes failing.
+
+Application latency increasing.
+
+🔍 ROOT CAUSE
+
+Redis maxmemory reached.
+
+🧪 Troubleshooting
+redis-cli INFO memory
+✅ QUICK FIX
+
+Increase memory.
+
+Evict old keys.
+
+🎯 Interview Answer
+
+"I check Redis memory utilization and eviction settings."
+
+🔥 INCIDENT 124: Kubernetes DaemonSet Not Running on New Nodes
+🔹 Incident Summary
+
+Monitoring agents missing on new worker nodes.
+
+🔍 ROOT CAUSE
+
+Node selectors or taints preventing scheduling.
+
+🧪 Troubleshooting
+kubectl describe ds
+✅ QUICK FIX
+
+Update DaemonSet configuration.
+
+🎯 Interview Answer
+
+"I verify taints, tolerations and node selectors."
+
+🔥 INCIDENT 125: AWS Backup Job Failed
+🔹 Incident Summary
+
+Nightly backups not completed.
+
+🔍 ROOT CAUSE
+
+IAM permissions or storage issue.
+
+🧪 Troubleshooting
+
+Review AWS Backup logs.
+
+✅ QUICK FIX
+
+Re-run backup.
+
+🎯 Interview Answer
+
+"I verify backup job status and restore capability immediately."
+
+🔥 INCIDENT 126: Jenkins Shared Library Failure
+🔹 Incident Summary
+
+Multiple pipelines failed simultaneously.
+
+🔍 ROOT CAUSE
+
+Shared library code broken.
+
+🧪 Troubleshooting
+
+Check:
+
+@Library('shared-lib')
+
+Review recent commits.
+
+✅ QUICK FIX
+
+Rollback shared library.
+
+🎯 Interview Answer
+
+"I identify shared components affecting multiple pipelines."
+
+🔥 INCIDENT 127: Kubernetes Service Mesh Certificate Expired
+🔹 Incident Summary
+
+Microservices unable to communicate.
+
+🔍 ROOT CAUSE
+
+mTLS certificates expired.
+
+🧪 Troubleshooting
+
+Check service mesh certificates.
+
+✅ QUICK FIX
+
+Renew certificates.
+
+🎯 Interview Answer
+
+"I verify service mesh certificate validity and communication policies."
+
+🔥 INCIDENT 128: RDS Automatic Backup Failed
+🔹 Incident Summary
+
+Backup window completed.
+
+No backup generated.
+
+🔍 ROOT CAUSE
+
+Storage issue or backup configuration failure.
+
+🧪 Troubleshooting
+
+Review RDS events.
+
+✅ QUICK FIX
+
+Trigger manual backup.
+
+🎯 Interview Answer
+
+"I verify backup retention and database event logs."
+
+🔥 INCIDENT 129: EKS Cluster Autoscaler Not Working
+🔹 Incident Summary
+
+Pending pods increasing.
+
+New nodes never launched.
+
+🔍 ROOT CAUSE
+
+Autoscaler IAM permission missing.
+
+🧪 Troubleshooting
+kubectl logs deployment/cluster-autoscaler
+✅ QUICK FIX
+
+Restore permissions.
+
+🎯 Interview Answer
+
+"I review autoscaler logs and node group configuration."
+
+🔥 INCIDENT 130: Complete Production Monitoring Failure
+🔹 Incident Summary
+
+Prometheus down.
+
+Grafana down.
+
+CloudWatch logs missing.
+
+🚨 Blind Production Environment
+
+🧠 What Actually Happened
+
+Monitoring stack failed.
+
+No visibility into production systems.
+
+🧪 Troubleshooting
+
+Check Prometheus:
+
+kubectl get pods -n monitoring
+
+Check Grafana:
+
+kubectl logs grafana-pod
+
+Check CloudWatch Agent:
+
+systemctl status amazon-cloudwatch-agent
+🔍 ROOT CAUSE
+Monitoring cluster failure
+Storage issue
+Configuration error
+✅ QUICK FIX
+
+Restore monitoring services immediately.
+
+Use application and infrastructure logs directly until monitoring returns.
+
+🛡️ PERMANENT FIX
+HA Prometheus
+HA Grafana
+Multiple monitoring layers
+Monitoring DR plan
+🎯 Interview Answer
+
+"If monitoring is completely unavailable, I first restore visibility because troubleshooting production without observability is extremely risky. I use direct logs and infrastructure metrics while recovering the monitoring stack."
+
+🔥 INCIDENT 131: Kubernetes StatefulSet Pod Not Starting
+🔹 Incident Summary
+
+Database pod stuck in:
+
+Pending
+
+Application cannot connect to database.
+
+🧠 What Actually Happened
+
+StatefulSet requires persistent storage.
+
+PVC not attached.
+
+Pod never starts.
+
+🧪 Troubleshooting
+kubectl get statefulsets
+kubectl get pvc
+kubectl describe pod mysql-0
+🔍 ROOT CAUSE
+Storage issue
+PVC Pending
+StorageClass problem
+✅ QUICK FIX
+
+Fix PVC binding.
+
+🎯 Interview Answer
+
+"I verify StatefulSet storage dependencies because database pods often fail due to PVC issues."
+
+🔥 INCIDENT 132: Jenkins Master Disk Corruption
+🔹 Incident Summary
+
+Jenkins starts but jobs missing.
+
+Pipelines fail.
+
+🧪 Troubleshooting
+df -h
+fsck /dev/xvda1
+journalctl -u jenkins
+🔍 ROOT CAUSE
+
+Filesystem corruption.
+
+✅ QUICK FIX
+
+Restore Jenkins Home backup.
+
+🎯 Interview Answer
+
+"I verify Jenkins data integrity and restore backups if job metadata becomes corrupted."
+
+🔥 INCIDENT 133: Docker Daemon Not Starting
+🔹 Incident Summary
+
+All containers down.
+
+docker ps
+
+returns error.
+
+🧪 Troubleshooting
+systemctl status docker
+journalctl -u docker
+🔍 ROOT CAUSE
+Disk full
+Docker config issue
+Corrupted storage
+✅ QUICK FIX
+
+Restart Docker daemon.
+
+🎯 Interview Answer
+
+"I inspect Docker daemon logs because containers depend on daemon availability."
+
+🔥 INCIDENT 134: AWS EBS Volume Performance Degradation
+🔹 Incident Summary
+
+Application extremely slow.
+
+CPU normal.
+
+Memory normal.
+
+🧪 Troubleshooting
+iostat -x
+
+Check CloudWatch:
+
+VolumeReadOps
+VolumeWriteOps
+BurstBalance
+🔍 ROOT CAUSE
+
+Storage bottleneck.
+
+✅ QUICK FIX
+
+Upgrade EBS type.
+
+🎯 Interview Answer
+
+"I investigate storage metrics whenever application slowness isn't explained by CPU or memory."
+
+🔥 INCIDENT 135: Kubernetes CoreDNS Failure
+🔹 Incident Summary
+
+Pods cannot communicate using service names.
+
+🧪 Troubleshooting
+kubectl get pods -n kube-system
+kubectl logs -n kube-system coredns-pod
+🔍 ROOT CAUSE
+
+CoreDNS crash.
+
+✅ QUICK FIX
+
+Restart CoreDNS.
+
+🎯 Interview Answer
+
+"I validate CoreDNS because service discovery depends on DNS resolution."
+
+🔥 INCIDENT 136: GitHub Token Expired
+🔹 Incident Summary
+
+CI/CD pipeline cannot clone repository.
+
+🧪 Troubleshooting
+git clone https://github.com/repo.git
+🔍 ROOT CAUSE
+
+PAT token expired.
+
+✅ QUICK FIX
+
+Generate new token.
+
+🎯 Interview Answer
+
+"I verify repository authentication whenever SCM access suddenly fails."
+
+🔥 INCIDENT 137: AWS Lambda Timeout Issue
+🔹 Incident Summary
+
+Lambda execution failing.
+
+Task timed out
+🧪 Troubleshooting
+
+Check CloudWatch Logs.
+
+🔍 ROOT CAUSE
+Long-running process
+External API delay
+✅ QUICK FIX
+
+Increase timeout.
+
+🎯 Interview Answer
+
+"I review execution duration and optimize long-running Lambda functions."
+
+🔥 INCIDENT 138: Terraform Provider Version Conflict
+🔹 Incident Summary
+
+Terraform init fails.
+
+🧪 Troubleshooting
+terraform init
+terraform providers
+🔍 ROOT CAUSE
+
+Provider version mismatch.
+
+✅ QUICK FIX
+
+Pin provider version.
+
+🎯 Interview Answer
+
+"I standardize provider versions across environments."
+
+🔥 INCIDENT 139: Production SSL Certificate Installed Incorrectly
+🔹 Incident Summary
+
+Website inaccessible after certificate update.
+
+🧪 Troubleshooting
+openssl s_client -connect app.com:443
+🔍 ROOT CAUSE
+
+Wrong certificate chain.
+
+✅ QUICK FIX
+
+Install correct certificate bundle.
+
+🎯 Interview Answer
+
+"I validate certificate chain and hostname mappings."
+
+🔥 INCIDENT 140: Kubernetes API Authentication Failure
+🔹 Incident Summary
+
+Developers cannot access cluster.
+
+🧪 Troubleshooting
+kubectl auth can-i get pods
+🔍 ROOT CAUSE
+
+RBAC issue.
+
+✅ QUICK FIX
+
+Restore RBAC permissions.
+
+🎯 Interview Answer
+
+"I investigate authentication and authorization separately."
+
+🔥 INCIDENT 141: Prometheus Not Scraping Targets
+🔹 Incident Summary
+
+Metrics disappeared.
+
+Alerts stopped.
+
+🧪 Troubleshooting
+kubectl logs prometheus-pod
+🔍 ROOT CAUSE
+
+Scrape config broken.
+
+✅ QUICK FIX
+
+Update targets.
+
+🎯 Interview Answer
+
+"I validate Prometheus targets and scrape configurations."
+
+🔥 INCIDENT 142: Grafana Dashboard Empty
+🔹 Incident Summary
+
+No metrics visible.
+
+🧪 Troubleshooting
+
+Check Datasource.
+
+🔍 ROOT CAUSE
+
+Prometheus datasource disconnected.
+
+✅ QUICK FIX
+
+Reconnect datasource.
+
+🎯 Interview Answer
+
+"I verify datasource connectivity before investigating dashboards."
+
+🔥 INCIDENT 143: Kubernetes Network Policy Blocking Traffic
+🔹 Incident Summary
+
+Pods healthy.
+
+Communication failing.
+
+🧪 Troubleshooting
+kubectl get networkpolicy
+🔍 ROOT CAUSE
+
+Restrictive policy.
+
+✅ QUICK FIX
+
+Modify NetworkPolicy.
+
+🎯 Interview Answer
+
+"I inspect network policies whenever pod communication unexpectedly fails."
+
+🔥 INCIDENT 144: AWS ECS Task Not Starting
+🔹 Incident Summary
+
+Containers never launch.
+
+🧪 Troubleshooting
+
+Check ECS Events.
+
+🔍 ROOT CAUSE
+
+Task definition issue.
+
+✅ QUICK FIX
+
+Correct task definition.
+
+🎯 Interview Answer
+
+"I analyze ECS events and task definitions."
+
+🔥 INCIDENT 145: Jenkins Pipeline Infinite Loop
+🔹 Incident Summary
+
+Pipeline repeatedly triggering itself.
+
+🧪 Troubleshooting
+
+Review Jenkinsfile.
+
+🔍 ROOT CAUSE
+
+Webhook recursion.
+
+✅ QUICK FIX
+
+Disable recursive trigger.
+
+🎯 Interview Answer
+
+"I identify trigger configuration causing repeated executions."
+
+🔥 INCIDENT 146: Kubernetes Node Disk Pressure
+🔹 Incident Summary
+
+Pods getting evicted.
+
+🧪 Troubleshooting
+kubectl describe node worker-1
+🔍 ROOT CAUSE
+
+Disk usage exceeded threshold.
+
+✅ QUICK FIX
+
+Free disk space.
+
+🎯 Interview Answer
+
+"I check node conditions and storage usage."
+
+🔥 INCIDENT 147: Route53 Failover Not Working
+🔹 Incident Summary
+
+Primary site down.
+
+Traffic never switched.
+
+🔍 ROOT CAUSE
+
+Failover records misconfigured.
+
+✅ QUICK FIX
+
+Correct failover policy.
+
+🎯 Interview Answer
+
+"I validate Route53 failover routing and health checks."
+
+🔥 INCIDENT 148: AWS Secrets Manager Secret Rotation Failed
+🔹 Incident Summary
+
+Applications unable to authenticate.
+
+🧪 Troubleshooting
+
+Check Rotation Lambda.
+
+🔍 ROOT CAUSE
+
+Rotation process failed.
+
+✅ QUICK FIX
+
+Restore previous secret.
+
+🎯 Interview Answer
+
+"I validate secret versions and rotation logs."
+
+🔥 INCIDENT 149: RDS Read Replica Not Syncing
+🔹 Incident Summary
+
+Replica lag increasing continuously.
+
+🔍 ROOT CAUSE
+
+Replication bottleneck.
+
+✅ QUICK FIX
+
+Scale replica resources.
+
+🎯 Interview Answer
+
+"I monitor replication lag and investigate bottlenecks."
+
+🔥 INCIDENT 150: Kubernetes Admission Controller Failure
+🔹 Incident Summary
+
+New pods rejected.
+
+🧪 Troubleshooting
+
+Check API Events.
+
+🔍 ROOT CAUSE
+
+Admission webhook unavailable.
+
+✅ QUICK FIX
+
+Restore webhook service.
+
+🎯 Interview Answer
+
+"I verify admission controllers when Kubernetes rejects valid manifests."
+
+🔥 INCIDENT 151: Production Nginx Reverse Proxy Failure
+🔹 Incident Summary
+
+Users receive:
+
+502 Bad Gateway
+🧪 Troubleshooting
+systemctl status nginx
+nginx -t
+🔍 ROOT CAUSE
+
+Backend unavailable.
+
+✅ QUICK FIX
+
+Restore backend connectivity.
+
+🎯 Interview Answer
+
+"I validate Nginx configuration and upstream availability."
+
+🔥 INCIDENT 152: AWS CloudTrail Logs Missing
+🔹 Incident Summary
+
+Security audit impossible.
+
+🔍 ROOT CAUSE
+
+CloudTrail disabled.
+
+✅ QUICK FIX
+
+Re-enable CloudTrail.
+
+🎯 Interview Answer
+
+"I restore audit logging immediately."
+
+🔥 INCIDENT 153: Docker Registry Storage Full
+🔹 Incident Summary
+
+New image pushes failing.
+
+🧪 Troubleshooting
+df -h
+🔍 ROOT CAUSE
+
+Registry storage exhausted.
+
+✅ QUICK FIX
+
+Cleanup old images.
+
+🎯 Interview Answer
+
+"I monitor registry storage utilization and retention."
+
+🔥 INCIDENT 154: Kubernetes Service Account Misconfiguration
+🔹 Incident Summary
+
+Pods cannot access AWS APIs.
+
+🧪 Troubleshooting
+kubectl describe sa
+🔍 ROOT CAUSE
+
+Wrong service account.
+
+✅ QUICK FIX
+
+Attach correct IAM role.
+
+🎯 Interview Answer
+
+"I verify ServiceAccount and IAM role mappings."
+
+🔥 INCIDENT 155: AWS VPC Peering Connection Failed
+🔹 Incident Summary
+
+Two VPCs cannot communicate.
+
+🧪 Troubleshooting
+
+Check Route Tables.
+
+🔍 ROOT CAUSE
+
+Missing routes.
+
+✅ QUICK FIX
+
+Update route tables.
+
+🎯 Interview Answer
+
+"I validate peering status and routing configuration."
+
+🔥 INCIDENT 156: Terraform Remote Backend Migration Failed
+🔹 Incident Summary
+
+State migration incomplete.
+
+🧪 Troubleshooting
+terraform init -migrate-state
+🔍 ROOT CAUSE
+
+Backend configuration error.
+
+✅ QUICK FIX
+
+Restore state backup.
+
+🎯 Interview Answer
+
+"I verify backend consistency before migration."
+
+🔥 INCIDENT 157: Kubernetes ETCD Backup Corrupted
+🔹 Incident Summary
+
+Cluster recovery failed.
+
+🧪 Troubleshooting
+etcdctl snapshot status backup.db
+🔍 ROOT CAUSE
+
+Invalid snapshot.
+
+✅ QUICK FIX
+
+Use alternate backup.
+
+🎯 Interview Answer
+
+"I always validate ETCD backups before relying on them."
+
+🔥 INCIDENT 158: Production API Rate Limiting Misconfigured
+🔹 Incident Summary
+
+Legitimate users blocked.
+
+🔍 ROOT CAUSE
+
+Incorrect rate-limit thresholds.
+
+✅ QUICK FIX
+
+Adjust limits.
+
+🎯 Interview Answer
+
+"I compare traffic patterns with configured limits."
+
+🔥 INCIDENT 159: Kubernetes Cluster Upgrade Failed
+🔹 Incident Summary
+
+Control plane upgraded.
+
+Worker nodes incompatible.
+
+🔍 ROOT CAUSE
+
+Version mismatch.
+
+✅ QUICK FIX
+
+Upgrade worker nodes.
+
+🎯 Interview Answer
+
+"I verify Kubernetes version compatibility before upgrades."
+
+🔥 INCIDENT 160: Complete Production Recovery After Datacenter Failure
+🔹 Incident Summary
+
+Primary datacenter unavailable.
+
+Entire production impacted.
+
+🚨 SEV-0 INCIDENT
+
+🧠 What Actually Happened
+
+Power/network failure caused total outage.
+
+Business continuity plan activated.
+
+🧪 Step-by-Step Troubleshooting
+
+Verify:
+
+DR Site Health
+Database Replication
+DNS Failover
+Load Balancers
+Application Services
+🔍 ROOT CAUSE
+
+Datacenter infrastructure failure.
+
+✅ QUICK FIX
+
+Failover to DR environment.
+
+🛡️ PERMANENT FIX
+Multi-Region Architecture
+Regular DR Testing
+Automated Failover
+Backup Validation
+Business Continuity Planning
+🎯 Interview Answer
+
+"In a datacenter failure, my priority is restoring business services through disaster recovery procedures. After failover, I validate application functionality, database consistency and customer access before beginning root cause analysis."
+
+🔥 INCIDENT 161: Kubernetes Worker Node Kernel Panic
+🔹 Incident Summary
+
+One worker node suddenly disappeared.
+
+Pods moved to other nodes.
+
+🧠 What Actually Happened
+
+Linux kernel crashed.
+
+Node stopped responding.
+
+Kubernetes marked node:
+
+NotReady
+🧪 Troubleshooting
+kubectl get nodes
+journalctl -k
+dmesg
+🔍 ROOT CAUSE
+Kernel bug
+Driver issue
+Memory corruption
+✅ QUICK FIX
+
+Reboot node.
+
+🎯 Interview Answer
+
+"I check kernel logs and node events to identify why the worker node became unavailable."
+
+🔥 INCIDENT 162: Jenkins Build Queue Reached 1000 Jobs
+🔹 Incident Summary
+
+Developers unable to deploy.
+
+Queue growing continuously.
+
+🧪 Troubleshooting
+Manage Jenkins
+→ Build Queue
+
+Check Agents.
+
+🔍 ROOT CAUSE
+Webhook storm
+Agent shortage
+✅ QUICK FIX
+
+Stop duplicate jobs.
+
+Add agents.
+
+🎯 Interview Answer
+
+"I analyze build queue growth and executor availability."
+
+🔥 INCIDENT 163: Docker Overlay2 Corruption
+🔹 Incident Summary
+
+Containers fail to start.
+
+Docker errors reported.
+
+🧪 Troubleshooting
+docker info
+journalctl -u docker
+🔍 ROOT CAUSE
+
+Overlay filesystem corruption.
+
+✅ QUICK FIX
+
+Restore Docker storage.
+
+🎯 Interview Answer
+
+"I inspect Docker storage driver health and recover corrupted layers."
+
+🔥 INCIDENT 164: AWS ALB Health Checks Randomly Failing
+🔹 Incident Summary
+
+Targets become unhealthy intermittently.
+
+🧪 Troubleshooting
+
+Check:
+
+curl localhost:8080/health
+
+Review ALB Metrics.
+
+🔍 ROOT CAUSE
+
+Application response delay.
+
+✅ QUICK FIX
+
+Increase timeout threshold.
+
+🎯 Interview Answer
+
+"I compare application response times against ALB health-check settings."
+
+🔥 INCIDENT 165: Terraform Plan Showing Thousands of Changes
+🔹 Incident Summary
+
+Normal deployment.
+
+Unexpected massive plan output.
+
+🧪 Troubleshooting
+terraform plan
+terraform state list
+🔍 ROOT CAUSE
+
+Wrong workspace.
+
+State mismatch.
+
+✅ QUICK FIX
+
+Verify backend and workspace.
+
+🎯 Interview Answer
+
+"I stop immediately and investigate state consistency before applying."
+
+🔥 INCIDENT 166: Kubernetes Pod Eviction Storm
+🔹 Incident Summary
+
+Hundreds of pods restarted.
+
+Cluster unstable.
+
+🧪 Troubleshooting
+kubectl get events
+kubectl top nodes
+🔍 ROOT CAUSE
+
+Node pressure.
+
+Memory exhaustion.
+
+✅ QUICK FIX
+
+Add nodes.
+
+🎯 Interview Answer
+
+"I analyze cluster resource pressure causing mass pod evictions."
+
+🔥 INCIDENT 167: AWS IAM Policy Accidentally Removed
+🔹 Incident Summary
+
+Applications lost AWS access.
+
+🧪 Troubleshooting
+aws sts get-caller-identity
+
+Review IAM.
+
+🔍 ROOT CAUSE
+
+Policy deleted.
+
+✅ QUICK FIX
+
+Restore IAM policy.
+
+🎯 Interview Answer
+
+"I compare previous IAM configurations and restore permissions."
+
+🔥 INCIDENT 168: GitHub Organization Access Lost
+🔹 Incident Summary
+
+Developers unable to access repositories.
+
+🔍 ROOT CAUSE
+
+SSO or permission issue.
+
+✅ QUICK FIX
+
+Restore organization access.
+
+🎯 Interview Answer
+
+"I validate organization permissions and SSO integration."
+
+🔥 INCIDENT 169: Kubernetes Pod DNS Resolution Failure
+🔹 Incident Summary
+
+Pods cannot resolve services.
+
+🧪 Troubleshooting
+nslookup kubernetes.default
+🔍 ROOT CAUSE
+
+CoreDNS issue.
+
+✅ QUICK FIX
+
+Restart CoreDNS.
+
+🎯 Interview Answer
+
+"I verify service discovery and DNS infrastructure."
+
+🔥 INCIDENT 170: AWS CloudWatch Metrics Missing
+🔹 Incident Summary
+
+Monitoring dashboards empty.
+
+🔍 ROOT CAUSE
+
+Agent stopped.
+
+IAM issue.
+
+✅ QUICK FIX
+
+Restart agent.
+
+🎯 Interview Answer
+
+"I validate metric collection pipeline and permissions."
+
+🔥 INCIDENT 171: RDS Multi-AZ Failover Failed
+🔹 Incident Summary
+
+Primary database failed.
+
+Standby did not take over.
+
+🔍 ROOT CAUSE
+
+Failover configuration issue.
+
+✅ QUICK FIX
+
+Manual failover.
+
+🎯 Interview Answer
+
+"I verify Multi-AZ configuration and standby health."
+
+🔥 INCIDENT 172: Jenkins Shared Storage Full
+🔹 Incident Summary
+
+All pipelines failing.
+
+Artifacts cannot be saved.
+
+🧪 Troubleshooting
+df -h
+🔍 ROOT CAUSE
+
+Storage exhausted.
+
+✅ QUICK FIX
+
+Cleanup artifacts.
+
+🎯 Interview Answer
+
+"I monitor artifact storage and retention policies."
+
+🔥 INCIDENT 173: Kubernetes PVC Data Corruption
+🔹 Incident Summary
+
+Application reads incorrect data.
+
+🔍 ROOT CAUSE
+
+Storage corruption.
+
+✅ QUICK FIX
+
+Restore backup.
+
+🎯 Interview Answer
+
+"I validate storage integrity and recovery procedures."
+
+🔥 INCIDENT 174: AWS NAT Gateway Cost Explosion
+🔹 Incident Summary
+
+Unexpected AWS bill increase.
+
+🔍 ROOT CAUSE
+
+Massive outbound traffic.
+
+✅ QUICK FIX
+
+Analyze VPC Flow Logs.
+
+🎯 Interview Answer
+
+"I investigate traffic patterns and NAT usage metrics."
+
+🔥 INCIDENT 175: Terraform Destroyed Route Tables
+🔹 Incident Summary
+
+Entire VPC lost connectivity.
+
+🧪 Troubleshooting
+terraform state list
+🔍 ROOT CAUSE
+
+Incorrect Terraform code.
+
+✅ QUICK FIX
+
+Restore route tables.
+
+🎯 Interview Answer
+
+"I compare Terraform changes with network architecture."
+
+🔥 INCIDENT 176: EKS Fargate Pods Not Starting
+🔹 Incident Summary
+
+Pods remain Pending.
+
+🔍 ROOT CAUSE
+
+Fargate profile mismatch.
+
+✅ QUICK FIX
+
+Correct profile selectors.
+
+🎯 Interview Answer
+
+"I validate namespace and label mappings."
+
+🔥 INCIDENT 177: Docker Registry Authentication Failure
+🔹 Incident Summary
+
+Push and pull operations failing.
+
+🧪 Troubleshooting
+docker login
+🔍 ROOT CAUSE
+
+Expired credentials.
+
+✅ QUICK FIX
+
+Update credentials.
+
+🎯 Interview Answer
+
+"I verify registry authentication and access permissions."
+
+🔥 INCIDENT 178: Kubernetes Secret Deleted Accidentally
+🔹 Incident Summary
+
+Applications failing authentication.
+
+🔍 ROOT CAUSE
+
+Secret removed.
+
+✅ QUICK FIX
+
+Restore secret.
+
+kubectl apply -f secret.yaml
+🎯 Interview Answer
+
+"I restore secret objects and restart affected workloads."
+
+🔥 INCIDENT 179: AWS S3 Cross-Region Replication Failed
+🔹 Incident Summary
+
+DR bucket not receiving files.
+
+🔍 ROOT CAUSE
+
+Replication permissions issue.
+
+✅ QUICK FIX
+
+Restore IAM permissions.
+
+🎯 Interview Answer
+
+"I verify replication status and IAM roles."
+
+🔥 INCIDENT 180: Production Kafka Cluster Failure
+🔹 Incident Summary
+
+Message processing stopped.
+
+🔍 ROOT CAUSE
+
+Broker failure.
+
+✅ QUICK FIX
+
+Restore broker quorum.
+
+🎯 Interview Answer
+
+"I validate broker health and partition leadership."
+
+🔥 INCIDENT 181: Kubernetes API Certificate Mismatch
+🔹 Incident Summary
+
+Nodes cannot join cluster.
+
+🔍 ROOT CAUSE
+
+Certificate mismatch.
+
+✅ QUICK FIX
+
+Renew certificates.
+
+🎯 Interview Answer
+
+"I verify certificate trust chain across cluster components."
+
+🔥 INCIDENT 182: Jenkins Controller Memory Leak
+🔹 Incident Summary
+
+Jenkins becomes slow every few days.
+
+🧪 Troubleshooting
+jmap
+jstat
+🔍 ROOT CAUSE
+
+Plugin memory leak.
+
+✅ QUICK FIX
+
+Restart Jenkins.
+
+🎯 Interview Answer
+
+"I analyze JVM heap usage and plugin behavior."
+
+🔥 INCIDENT 183: AWS VPC CIDR Overlap Issue
+🔹 Incident Summary
+
+VPC peering failed.
+
+🔍 ROOT CAUSE
+
+Overlapping CIDR ranges.
+
+✅ QUICK FIX
+
+Redesign network.
+
+🎯 Interview Answer
+
+"I verify IP planning before establishing connectivity."
+
+🔥 INCIDENT 184: Kubernetes RBAC Lockout
+🔹 Incident Summary
+
+Admins lost cluster access.
+
+🔍 ROOT CAUSE
+
+RBAC misconfiguration.
+
+✅ QUICK FIX
+
+Restore admin role bindings.
+
+🎯 Interview Answer
+
+"I recover administrative access through bootstrap credentials."
+
+🔥 INCIDENT 185: Docker Build Context Too Large
+🔹 Incident Summary
+
+Docker build takes 30 minutes.
+
+🔍 ROOT CAUSE
+
+Large files copied into context.
+
+✅ QUICK FIX
+
+Create:
+
+.dockerignore
+🎯 Interview Answer
+
+"I optimize build context and Dockerfile structure."
+
+🔥 INCIDENT 186: AWS WAF Blocking Legitimate Traffic
+🔹 Incident Summary
+
+Customers unable to access application.
+
+🔍 ROOT CAUSE
+
+Aggressive WAF rule.
+
+✅ QUICK FIX
+
+Disable faulty rule.
+
+🎯 Interview Answer
+
+"I analyze WAF logs before changing security policies."
+
+🔥 INCIDENT 187: Kubernetes ImagePullBackOff Due to Expired Token
+🔹 Incident Summary
+
+New pods cannot pull images.
+
+🔍 ROOT CAUSE
+
+Registry token expired.
+
+✅ QUICK FIX
+
+Update imagePullSecret.
+
+🎯 Interview Answer
+
+"I verify registry authentication whenever image pulls fail."
+
+🔥 INCIDENT 188: AWS EC2 Metadata Service Disabled
+🔹 Incident Summary
+
+Application cannot obtain IAM credentials.
+
+🔍 ROOT CAUSE
+
+Metadata service blocked.
+
+✅ QUICK FIX
+
+Enable IMDS.
+
+🎯 Interview Answer
+
+"I validate instance metadata availability for IAM role access."
+
+🔥 INCIDENT 189: GitHub Actions Runner Offline
+🔹 Incident Summary
+
+Workflows stuck.
+
+🔍 ROOT CAUSE
+
+Runner service stopped.
+
+✅ QUICK FIX
+
+Restart runner.
+
+🎯 Interview Answer
+
+"I verify runner connectivity and health."
+
+🔥 INCIDENT 190: Prometheus Storage Full
+🔹 Incident Summary
+
+Metrics ingestion stopped.
+
+🔍 ROOT CAUSE
+
+Persistent volume exhausted.
+
+✅ QUICK FIX
+
+Increase storage.
+
+🎯 Interview Answer
+
+"I monitor Prometheus retention and storage growth."
+
+🔥 INCIDENT 191: Kubernetes Service Mesh Sidecar Injection Failure
+🔹 Incident Summary
+
+Pods missing sidecars.
+
+🔍 ROOT CAUSE
+
+Webhook failure.
+
+✅ QUICK FIX
+
+Restart injection controller.
+
+🎯 Interview Answer
+
+"I verify admission webhook functionality."
+
+🔥 INCIDENT 192: AWS ELB Listener Misconfiguration
+🔹 Incident Summary
+
+Traffic reaching wrong backend.
+
+🔍 ROOT CAUSE
+
+Listener rule error.
+
+✅ QUICK FIX
+
+Correct listener rule.
+
+🎯 Interview Answer
+
+"I validate listener priorities and routing logic."
+
+🔥 INCIDENT 193: Terraform Backend DynamoDB Lock Table Deleted
+🔹 Incident Summary
+
+State locking stopped working.
+
+🔍 ROOT CAUSE
+
+Lock table removed.
+
+✅ QUICK FIX
+
+Recreate DynamoDB table.
+
+🎯 Interview Answer
+
+"I restore state-locking mechanisms before running Terraform."
+
+🔥 INCIDENT 194: Kubernetes Cluster Autoscaler Infinite Scale-Up
+🔹 Incident Summary
+
+Unexpected cloud costs.
+
+🔍 ROOT CAUSE
+
+Misconfigured autoscaler.
+
+✅ QUICK FIX
+
+Adjust scaling limits.
+
+🎯 Interview Answer
+
+"I review autoscaler decisions and resource requests."
+
+🔥 INCIDENT 195: AWS ACM Certificate Validation Failed
+🔹 Incident Summary
+
+SSL certificate issuance stuck.
+
+🔍 ROOT CAUSE
+
+DNS validation missing.
+
+✅ QUICK FIX
+
+Create validation records.
+
+🎯 Interview Answer
+
+"I verify ACM validation records and domain ownership."
+
+🔥 INCIDENT 196: Production MySQL Deadlock Storm
+🔹 Incident Summary
+
+Transactions failing.
+
+🔍 ROOT CAUSE
+
+Database locking contention.
+
+✅ QUICK FIX
+
+Optimize queries.
+
+🎯 Interview Answer
+
+"I investigate transaction patterns and lock contention."
+
+🔥 INCIDENT 197: Kubernetes Node Time Drift Issue
+🔹 Incident Summary
+
+Authentication failures.
+
+Certificate issues.
+
+🔍 ROOT CAUSE
+
+NTP synchronization failure.
+
+✅ QUICK FIX
+
+Restart chronyd.
+
+🎯 Interview Answer
+
+"I verify time synchronization across cluster nodes."
+
+🔥 INCIDENT 198: AWS CloudFormation Stack Stuck in UPDATE_ROLLBACK_FAILED
+🔹 Incident Summary
+
+Infrastructure updates blocked.
+
+🔍 ROOT CAUSE
+
+Resource dependency failure.
+
+✅ QUICK FIX
+
+Continue rollback manually.
+
+🎯 Interview Answer
+
+"I analyze failed resources and complete rollback safely."
+
+🔥 INCIDENT 199: Complete Kubernetes Cluster Outage
+🔹 Incident Summary
+
+Entire cluster unavailable.
+
+🚨 SEV-0
+
+🔍 ROOT CAUSE
+
+Control plane failure.
+
+✅ QUICK FIX
+
+Restore control plane and etcd.
+
+🎯 Interview Answer
+
+"My priority is restoring cluster availability while protecting application data."
+
+🔥 INCIDENT 200: Complete Multi-Cloud Disaster Recovery Activation
+🔹 Incident Summary
+
+Primary cloud provider unavailable.
+
+Business continuity activated.
+
+🚨 SEV-0 INCIDENT
+
+🧠 What Actually Happened
+
+Entire cloud region/provider unavailable.
+
+AWS workloads inaccessible.
+
+Organization activated Multi-Cloud DR.
+
+🧪 Step-by-Step Troubleshooting
+
+Verify:
+
+DR Environment Health
+Database Replication
+DNS Failover
+Kubernetes Clusters
+CI/CD Recovery
+Application Access
+🔍 ROOT CAUSE
+
+Major cloud outage.
+
+✅ QUICK FIX
+
+Failover to secondary cloud provider.
+
+🛡️ PERMANENT FIX
+Multi-Cloud Architecture
+Cross-Cloud Backups
+DR Testing
+Automated Failover
+Business Continuity Planning
+🎯 Interview Answer
+
+"In a complete cloud outage, I execute the disaster recovery plan, activate the secondary cloud environment, validate data consistency, restore customer access, and then coordinate recovery activities across teams."
