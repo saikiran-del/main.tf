@@ -1,0 +1,8050 @@
+Phase 1: Terraform → AWS Infrastructure
+Final Folder Structure
+
+self-healing-platform/
+
+├── terraform/
+│
+├── providers.tf
+├── variables.tf
+├── main.tf
+├── outputs.tf
+│
+├── vpc.tf
+├── security-groups.tf
+├── eks.tf
+│
+├── terraform.tfvars
+│
+└── modules/
+├── vpc/
+├── eks/
+└── security-group/
+
+providers.tf
+
+This file tells Terraform:
+
+Which cloud provider to use
+Which region to use
+
+terraform {
+
+required_version = ">=1.5"
+
+required_providers {
+
+aws = {
+  source  = "hashicorp/aws"
+  version = "~> 5.0"
+}
+
+}
+
+}
+
+provider "aws" {
+
+region = var.aws_region
+
+}
+
+Explanation
+terraform {
+
+Starts Terraform configuration.
+
+required_version = ">=1.5"
+
+Terraform version must be 1.5 or higher.
+
+required_providers
+
+Specifies cloud provider plugins.
+
+aws
+
+Downloads AWS provider.
+
+region = var.aws_region
+
+Uses region from variables file.
+
+Example:
+
+ap-south-1
+
+(Mumbai)
+
+variables.tf
+
+All configurable values go here.
+
+variable "aws_region" {
+
+description = "AWS Region"
+
+type = string
+
+default = "ap-south-1"
+
+}
+
+variable "project_name" {
+
+description = "Project Name"
+
+type = string
+
+default = "self-healing-platform"
+
+}
+
+variable "vpc_cidr" {
+
+default = "10.0.0.0/16"
+
+}
+
+Explanation
+variable
+
+Creates reusable input.
+
+default
+
+Value used if user doesn't provide one.
+
+vpc.tf
+
+Creates VPC.
+
+resource "aws_vpc" "main" {
+
+  cidr_block = var.vpc_cidr
+
+  enable_dns_hostnames = true
+
+  enable_dns_support = true
+
+  tags = {
+
+    Name = "${var.project_name}-vpc"
+
+  }
+
+}
+Explanation
+Resource Block
+resource
+
+Creates AWS resources.
+
+aws_vpc
+aws_vpc
+
+AWS Virtual Private Cloud.
+
+cidr_block
+10.0.0.0/16
+
+Provides:
+
+65,536 IP addresses
+enable_dns_hostnames
+true
+
+Allows:
+
+ip-10-0-1-10.ec2.internal
+
+hostnames.
+
+Tags
+Name
+
+Used for easy identification.
+
+Public Subnets
+resource "aws_subnet" "public_1" {
+
+  vpc_id = aws_vpc.main.id
+
+  cidr_block = "10.0.1.0/24"
+
+  availability_zone = "ap-south-1a"
+
+  map_public_ip_on_launch = true
+
+}
+Explanation
+aws_subnet
+
+Creates subnet.
+
+10.0.1.0/24
+
+256 IPs.
+
+map_public_ip_on_launch=true
+
+EC2 gets public IP.
+
+Used for:
+
+Load Balancer
+NAT Gateway
+Internet Gateway
+resource "aws_internet_gateway" "igw" {
+
+  vpc_id = aws_vpc.main.id
+
+}
+Why?
+
+Without Internet Gateway:
+
+Internet
+    X
+    |
+    VPC
+
+Users cannot reach application.
+
+Security Group
+resource "aws_security_group" "eks_sg" {
+
+  name = "eks-security-group"
+
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+
+    from_port = 443
+
+    to_port = 443
+
+    protocol = "tcp"
+
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+  egress {
+
+    from_port = 0
+
+    to_port = 0
+
+    protocol = "-1"
+
+    cidr_blocks = ["0.0.0.0/0"]
+
+  }
+
+}
+Explanation
+Ingress
+
+Incoming traffic.
+
+443
+
+HTTPS.
+
+Egress
+
+Outgoing traffic.
+
+0
+0
+-1
+
+Means:
+
+Allow everything outbound
+EKS Cluster
+resource "aws_eks_cluster" "main" {
+
+  name = "self-healing-eks"
+
+  role_arn = aws_iam_role.eks_cluster_role.arn
+
+  vpc_config {
+
+    subnet_ids = [
+
+      aws_subnet.public_1.id
+
+    ]
+
+  }
+
+}
+Explanation
+aws_eks_cluster
+
+Creates Kubernetes control plane.
+
+AWS manages:
+
+API Server
+Scheduler
+ETCD
+role_arn
+
+IAM permissions.
+
+subnet_ids
+
+Where cluster network lives.
+
+Terraform Commands
+
+Initialize:
+
+terraform init
+
+Downloads AWS provider.
+
+Validate:
+
+terraform validate
+
+Checks syntax.
+
+Preview:
+
+terraform plan
+
+Shows resources before creation.
+
+Create:
+
+terraform apply
+
+Builds infrastructure.
+
+Destroy:
+
+terraform destroy
+
+Deletes everything.
+
+What You Learn in Phase 1
+
+By the end of Phase 1 you will understand:
+
+✅ VPC
+
+✅ Subnets
+
+✅ Route Tables
+
+✅ Internet Gateway
+
+✅ Security Groups
+
+✅ IAM Roles
+
+✅ EKS Cluster
+
+✅ Terraform Workflow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ---------------------------------------Phase 2-------------------------------------------------------------------------------------
+
+
+  Phase 2: Jenkins CI/CD Server + GitHub Webhook + Docker Build + ECR Push
+
+Now we move from Infrastructure Engineer mode to DevOps Engineer mode.
+
+At the end of this phase:
+
+Developer
+   ↓
+GitHub
+   ↓
+Webhook
+   ↓
+Jenkins
+   ↓
+Docker Build
+   ↓
+Amazon ECR
+
+Everything becomes automatic.
+
+Goal
+
+Whenever a developer pushes code:
+
+git add .
+git commit -m "new feature"
+git push origin main
+
+Jenkins should:
+
+Receive webhook
+Download code
+Build application
+Build Docker image
+Push image to ECR
+
+No manual work.
+
+Architecture
+GitHub Repository
+        │
+        ▼
+GitHub Webhook
+        │
+        ▼
+Jenkins Server (EC2)
+        │
+        ▼
+Docker Build
+        │
+        ▼
+Amazon ECR
+Step 1
+Create Jenkins EC2
+
+AWS Console
+
+Launch EC2
+
+Name:
+jenkins-server
+
+AMI:
+Ubuntu 22.04
+
+Instance:
+t3.medium
+
+Storage:
+30 GB
+
+Security Group:
+22
+8080
+Why t3.medium?
+
+Jenkins uses memory.
+
+t2.micro
+
+will become slow.
+
+Use:
+
+2 vCPU
+4 GB RAM
+
+minimum.
+
+Step 2
+Install Java
+
+Jenkins requires Java.
+
+sudo apt update
+
+sudo apt install openjdk-17-jdk -y
+
+Verify:
+
+java -version
+
+Expected:
+
+openjdk 17
+Step 3
+Install Jenkins
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+/usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+Add repository:
+
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+/etc/apt/sources.list.d/jenkins.list > /dev/null
+
+Install:
+
+sudo apt update
+
+sudo apt install jenkins -y
+Start Jenkins
+sudo systemctl enable jenkins
+
+sudo systemctl start jenkins
+
+Check:
+
+sudo systemctl status jenkins
+
+Expected:
+
+active (running)
+Access Jenkins
+http://EC2_PUBLIC_IP:8080
+
+Get initial password:
+
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+Copy password.
+
+Login.
+
+Install suggested plugins.
+
+Create admin user.
+
+Step 4
+Install Docker
+
+Jenkins must build images.
+
+sudo apt install docker.io -y
+
+Verify:
+
+docker --version
+
+Start Docker
+
+sudo systemctl enable docker
+
+sudo systemctl start docker
+Give Jenkins Access to Docker
+
+Without this:
+
+permission denied
+
+error occurs.
+
+Add Jenkins to docker group.
+
+sudo usermod -aG docker jenkins
+
+Restart services:
+
+sudo systemctl restart docker
+
+sudo systemctl restart jenkins
+Verify
+
+Switch user:
+
+sudo su - jenkins
+
+Test:
+
+docker ps
+
+If successful:
+
+Docker permissions are fixed.
+
+Step 5
+Install AWS CLI
+
+Jenkins must push images to ECR.
+
+sudo apt install awscli -y
+
+Verify:
+
+aws --version
+Configure AWS Credentials
+aws configure
+
+Enter:
+
+AWS_ACCESS_KEY_ID
+
+AWS_SECRET_ACCESS_KEY
+
+Region:
+ap-south-1
+Step 6
+Create ECR Repository
+
+AWS Console
+
+Search:
+
+Elastic Container Registry
+
+Create repository:
+
+self-healing-app
+
+Example URI:
+
+123456789012.dkr.ecr.ap-south-1.amazonaws.com/self-healing-app
+
+Save it.
+
+Step 7
+Create Sample Application
+
+Repository:
+
+self-healing-platform
+
+Structure:
+
+app/
+
+├── index.html
+├── Dockerfile
+index.html
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Self Healing Platform</title>
+</head>
+
+<body>
+
+<h1>Application Running Successfully</h1>
+
+</body>
+
+</html>
+Dockerfile
+FROM nginx:latest
+
+COPY index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
+Understanding Dockerfile
+FROM
+FROM nginx:latest
+
+Base image.
+
+COPY
+COPY index.html
+
+Copies file into image.
+
+EXPOSE
+EXPOSE 80
+
+Application listens on port 80.
+
+Step 8
+Push Project to GitHub
+git init
+
+git add .
+
+git commit -m "initial commit"
+
+git branch -M main
+
+git remote add origin REPOSITORY_URL
+
+git push -u origin main
+Step 9
+Create Jenkins Pipeline Job
+
+Jenkins
+
+New Item
+
+Pipeline
+
+Name:
+
+self-healing-pipeline
+Step 10
+Jenkinsfile
+
+Create file:
+
+Jenkinsfile
+
+Root of repo.
+
+pipeline {
+
+    agent any
+
+    environment {
+
+        AWS_REGION = 'ap-south-1'
+
+        ECR_REPO = 'self-healing-app'
+
+        ACCOUNT_ID = '123456789012'
+
+    }
+
+    stages {
+
+        stage('Checkout') {
+
+            steps {
+
+                git branch: 'main',
+                url: 'https://github.com/USERNAME/self-healing-platform.git'
+
+            }
+
+        }
+
+        stage('Build Docker Image') {
+
+            steps {
+
+                sh '''
+                docker build -t self-healing-app .
+                '''
+
+            }
+
+        }
+
+        stage('Login ECR') {
+
+            steps {
+
+                sh '''
+                aws ecr get-login-password \
+                --region $AWS_REGION | \
+                docker login \
+                --username AWS \
+                --password-stdin \
+                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                '''
+            }
+
+        }
+
+        stage('Tag Image') {
+
+            steps {
+
+                sh '''
+                docker tag self-healing-app:latest \
+                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest
+                '''
+            }
+
+        }
+
+        stage('Push Image') {
+
+            steps {
+
+                sh '''
+                docker push \
+                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:latest
+                '''
+            }
+
+        }
+
+    }
+
+}
+Pipeline Stage Explanation
+Stage 1
+
+Checkout
+
+git
+
+Downloads source code.
+
+Stage 2
+
+Build Docker Image
+
+docker build
+
+Creates container image.
+
+Stage 3
+
+Login ECR
+
+aws ecr get-login-password
+
+Authenticates Docker.
+
+Stage 4
+
+Tag Image
+
+Converts:
+
+self-healing-app
+
+to:
+
+AWS_ECR_URL/self-healing-app
+Stage 5
+
+Push Image
+
+Uploads image to ECR.
+
+Step 11
+GitHub Webhook
+
+GitHub Repository
+
+Settings
+
+Webhooks
+
+Add webhook.
+
+Payload URL:
+
+http://JENKINS_PUBLIC_IP:8080/github-webhook/
+
+Content Type:
+
+application/json
+
+Events:
+
+Just the push event
+
+Save.
+
+Step 12
+Configure Jenkins Trigger
+
+Pipeline
+
+Build Triggers
+
+Enable:
+
+GitHub hook trigger for GITScm polling
+
+Save.
+
+Complete Flow
+
+Developer:
+
+git push origin main
+
+↓
+
+GitHub
+
+↓
+
+Webhook
+
+↓
+
+Jenkins
+
+↓
+
+Checkout
+
+↓
+
+Docker Build
+
+↓
+
+ECR Login
+
+↓
+
+Push Image
+
+↓
+
+Image Available in ECR
+
+Real Interview Questions
+Q1
+
+Why use ECR instead of DockerHub?
+
+Answer:
+
+ECR is AWS native,
+more secure,
+supports IAM,
+faster integration with EKS.
+Q2
+
+Why Jenkins needs Docker?
+
+Answer:
+
+Jenkins builds container images
+before deployment.
+Q3
+
+Why use Webhooks?
+
+Answer:
+
+Automatically triggers pipeline
+after code push.
+Q4
+
+What happens if Docker build fails?
+
+Answer:
+
+Pipeline stops.
+Image is not pushed.
+Deployment never happens.
+End Result of Phase 2
+
+You now have:
+
+✅ Jenkins Server
+
+✅ Docker Installed
+
+✅ AWS CLI Installed
+
+✅ GitHub Integration
+
+✅ Jenkins Pipeline
+
+✅ Docker Image Build
+
+✅ ECR Repository
+
+✅ Webhook Automation
+
+✅ CI Pipeline Ready
+
+
+
+
+
+
+
+
+
+
+  -------------------------------------------phase 3 -----------------------------------------------------------------------------
+
+
+Phase 3: Amazon EKS Deployment + Kubernetes Manifests + Services + Load Balancer + Rolling Updates
+
+Now we move from CI (Continuous Integration) to CD (Continuous Deployment).
+
+At the end of this phase:
+
+Developer
+    ↓
+GitHub
+    ↓
+Jenkins
+    ↓
+Docker Build
+    ↓
+Amazon ECR
+    ↓
+Amazon EKS
+    ↓
+Pods Running
+    ↓
+Users Access Application
+What Problem Are We Solving?
+
+Current Situation:
+
+Docker Image
+↓
+Stored in ECR
+
+But users cannot access it.
+
+Why?
+
+Because:
+
+Image Exists
+Application Not Running
+
+We need Kubernetes to run containers.
+
+Phase 3 Architecture
+Amazon ECR
+      │
+      ▼
+Amazon EKS Cluster
+      │
+      ▼
+Deployment
+      │
+      ▼
+Pods
+      │
+      ▼
+Service
+      │
+      ▼
+Load Balancer
+      │
+      ▼
+Internet Users
+Step 1
+Connect Jenkins to EKS
+
+Inside Jenkins Server:
+
+Install kubectl.
+
+curl -LO "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
+
+chmod +x kubectl
+
+sudo mv kubectl /usr/local/bin/
+
+Verify:
+
+kubectl version --client
+Install EKS Access
+aws eks update-kubeconfig \
+--region ap-south-1 \
+--name self-healing-eks
+What Happens?
+
+AWS creates:
+
+~/.kube/config
+
+Contains:
+
+Cluster Endpoint
+Authentication
+Certificates
+
+Now Jenkins can talk to Kubernetes.
+
+Verify
+kubectl get nodes
+
+Expected:
+
+NAME               STATUS
+ip-10-0-11-23      Ready
+ip-10-0-12-55      Ready
+Step 2
+Create Kubernetes Folder
+
+Repository Structure:
+
+self-healing-platform/
+
+├── app/
+├── Dockerfile
+├── Jenkinsfile
+│
+└── k8s/
+    ├── deployment.yaml
+    ├── service.yaml
+    ├── ingress.yaml
+Step 3
+Deployment Manifest
+
+File:
+
+k8s/deployment.yaml
+apiVersion: apps/v1
+
+kind: Deployment
+
+metadata:
+  name: frontend
+
+spec:
+
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: frontend
+
+  template:
+
+    metadata:
+      labels:
+        app: frontend
+
+    spec:
+
+      containers:
+
+      - name: frontend
+
+        image: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/self-healing-app:latest
+
+        ports:
+
+        - containerPort: 80
+Understanding Every Line
+apiVersion
+apiVersion: apps/v1
+
+Tells Kubernetes:
+
+Use Deployment API
+kind
+kind: Deployment
+
+Creates Deployment object.
+
+metadata
+metadata:
+  name: frontend
+
+Deployment name.
+
+replicas
+replicas: 3
+
+Kubernetes creates:
+
+Pod-1
+Pod-2
+Pod-3
+selector
+matchLabels:
+
+Links Deployment to Pods.
+
+container image
+image:
+
+Pulls image from ECR.
+
+What Happens Internally?
+
+Deployment Controller:
+
+Desired Pods = 3
+Current Pods = 0
+
+Creates:
+
+Pod1
+Pod2
+Pod3
+
+Automatically.
+
+Verify
+kubectl apply -f deployment.yaml
+
+Check:
+
+kubectl get deployments
+
+Output:
+
+frontend
+
+Check Pods:
+
+kubectl get pods
+
+Output:
+
+frontend-abc123
+frontend-def456
+frontend-xyz789
+Step 4
+Create Service
+
+Pods have dynamic IPs.
+
+Problem:
+
+Pod Restart
+IP Changes
+
+Users cannot access application.
+
+Solution:
+
+Service.
+
+File:
+
+k8s/service.yaml
+apiVersion: v1
+
+kind: Service
+
+metadata:
+  name: frontend-service
+
+spec:
+
+  selector:
+    app: frontend
+
+  ports:
+
+  - protocol: TCP
+
+    port: 80
+
+    targetPort: 80
+
+  type: LoadBalancer
+Understanding
+selector
+selector:
+ app: frontend
+
+Finds frontend Pods.
+
+port
+port: 80
+
+Public port.
+
+targetPort
+targetPort: 80
+
+Container port.
+
+LoadBalancer
+type: LoadBalancer
+
+AWS automatically creates:
+
+Elastic Load Balancer
+
+Amazing feature of Kubernetes + AWS.
+
+Deploy Service
+kubectl apply -f service.yaml
+
+Check:
+
+kubectl get svc
+
+Output:
+
+frontend-service
+
+Wait 2 minutes.
+
+Output:
+
+EXTERNAL-IP
+
+appears.
+
+Example:
+
+abcd1234.elb.amazonaws.com
+
+Open browser.
+
+Application accessible.
+
+User Request Flow
+User
+  │
+  ▼
+AWS Load Balancer
+  │
+  ▼
+Pod1
+Pod2
+Pod3
+
+Traffic distributed.
+
+Step 5
+Rolling Updates
+
+This is a favorite interview topic.
+
+Imagine:
+
+Current Version:
+
+v1
+
+Need:
+
+v2
+
+Without downtime.
+
+Update Application
+
+Change HTML:
+
+<h1>Version 2</h1>
+
+Push code.
+
+Pipeline builds new image.
+
+Update Deployment:
+
+image:
+self-healing-app:v2
+
+Apply:
+
+kubectl apply -f deployment.yaml
+What Kubernetes Does
+
+Current:
+
+Pod1 v1
+Pod2 v1
+Pod3 v1
+
+Step 1
+
+Create Pod4 v2
+
+Step 2
+
+Delete Pod1 v1
+
+Step 3
+
+Create Pod5 v2
+
+Step 4
+
+Delete Pod2 v1
+
+Continues until:
+
+All Pods = v2
+
+Users see:
+
+Zero Downtime
+Step 6
+Health Checks
+
+Without health checks:
+
+Container Running
+Application Broken
+
+Kubernetes thinks:
+
+Everything Fine
+
+Wrong.
+
+Add Probes.
+
+livenessProbe:
+
+  httpGet:
+
+    path: /
+
+    port: 80
+
+  initialDelaySeconds: 10
+
+  periodSeconds: 5
+What Happens?
+
+Every:
+
+5 seconds
+
+Kubernetes checks:
+
+GET /
+
+If application fails:
+
+500 Error
+
+Kubernetes:
+
+Kills Container
+Starts New Container
+
+Self-healing begins.
+
+Readiness Probe
+readinessProbe:
+
+  httpGet:
+
+    path: /
+
+    port: 80
+
+Purpose:
+
+Do not send traffic
+until app is ready
+Step 7
+Automatic Deployment from Jenkins
+
+Add stage.
+
+stage('Deploy to EKS') {
+
+ steps {
+
+  sh '''
+
+  kubectl apply -f k8s/deployment.yaml
+
+  kubectl apply -f k8s/service.yaml
+
+  '''
+
+ }
+
+}
+Final Pipeline
+GitHub
+  ↓
+Webhook
+  ↓
+Jenkins
+  ↓
+Build
+  ↓
+Docker
+  ↓
+ECR
+  ↓
+EKS Deployment
+  ↓
+Pods Updated
+Common Production Problems
+Pod Crash
+
+Check:
+
+kubectl get pods
+Logs
+kubectl logs POD_NAME
+Describe
+kubectl describe pod POD_NAME
+Service Issue
+kubectl get svc
+Deployment Issue
+kubectl describe deployment frontend
+Interview Questions
+Why Deployment?
+
+Answer:
+
+Maintains desired number of pods.
+Provides rolling updates.
+Supports self-healing.
+Why Service?
+
+Answer:
+
+Provides stable endpoint.
+Load balances traffic.
+Why LoadBalancer?
+
+Answer:
+
+Exposes application to internet.
+AWS automatically provisions ELB.
+What is Rolling Update?
+
+Answer:
+
+Deploys new version gradually
+without downtime.
+What are Liveness and Readiness Probes?
+
+Answer:
+
+Liveness checks if application is alive.
+
+Readiness checks if application is ready to receive traffic.
+End of Phase 3
+
+You now have:
+
+✅ EKS Cluster
+
+✅ Deployment
+
+✅ Pods
+
+✅ Service
+
+✅ AWS Load Balancer
+
+✅ Rolling Updates
+
+✅ Health Checks
+
+✅ Jenkins → EKS Deployment
+
+✅ Zero Downtime Deployment
+
+
+
+
+
+
+
+  ----------------------------------------------------phase 4 -----------------------------------------------------------
+
+
+
+  Phase 4 – Monitoring + Prometheus + Grafana + AlertManager + Auto Scaling
+
+This is where your project starts looking like something a real DevOps engineer would build.
+
+Until now:
+
+GitHub
+ ↓
+Jenkins
+ ↓
+Docker
+ ↓
+ECR
+ ↓
+EKS
+ ↓
+Pods Running
+
+Many candidates stop here.
+
+But companies care about:
+
+Can you monitor production?
+
+Can you detect failures?
+
+Can you scale automatically?
+
+Can you alert engineers?
+
+Can you avoid downtime?
+
+This phase answers those questions.
+
+What We Are Building
+Application Pods
+        │
+        ▼
+Prometheus
+        │
+        ▼
+Grafana
+        │
+        ▼
+AlertManager
+        │
+        ▼
+Slack / Email
+
+-----------------------
+
+Prometheus
+        │
+        ▼
+HPA
+        │
+        ▼
+Auto Scaling
+
+-----------------------
+
+Cluster Autoscaler
+        │
+        ▼
+Node Scaling
+Monitoring Namespace
+
+Create dedicated namespace.
+
+kubectl create namespace monitoring
+
+Verify:
+
+kubectl get ns
+
+Output:
+
+default
+kube-system
+monitoring
+Why Separate Namespace?
+
+Bad Practice:
+
+All Applications
+Prometheus
+Grafana
+
+Inside default namespace
+
+Hard to manage.
+
+Good Practice:
+
+production
+
+monitoring
+
+incident-management
+
+Separated clearly.
+
+Install Helm
+
+Helm is Kubernetes package manager.
+
+Install:
+
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+Verify:
+
+helm version
+Add Prometheus Repository
+helm repo add prometheus-community \
+https://prometheus-community.github.io/helm-charts
+
+Update:
+
+helm repo update
+Install kube-prometheus-stack
+
+This installs:
+
+Prometheus
+
+Grafana
+
+AlertManager
+
+Node Exporter
+
+Kube State Metrics
+
+Command:
+
+helm install monitoring \
+prometheus-community/kube-prometheus-stack \
+-n monitoring
+Verify Installation
+kubectl get pods -n monitoring
+
+Expected:
+
+prometheus-server
+
+grafana
+
+alertmanager
+
+node-exporter
+What Each Component Does
+Prometheus
+
+Collects metrics.
+
+Examples:
+
+CPU
+
+Memory
+
+Disk
+
+Network
+
+Pod Status
+
+Node Status
+
+Stores them.
+
+Grafana
+
+Visualizes metrics.
+
+Turns numbers into dashboards.
+
+Example:
+
+CPU Usage Graph
+
+Memory Graph
+
+Network Traffic
+
+Pod Health
+AlertManager
+
+Receives alerts.
+
+Example:
+
+CPU > 80%
+
+Pod Down
+
+Node Down
+
+Memory > 90%
+
+Then sends:
+
+Slack
+
+Email
+
+Teams
+
+notifications.
+
+Node Exporter
+
+Runs on every node.
+
+Collects:
+
+CPU
+
+RAM
+
+Disk
+
+Filesystem
+
+Load Average
+kube-state-metrics
+
+Collects Kubernetes information.
+
+Deployments
+
+Pods
+
+ReplicaSets
+
+Namespaces
+Access Grafana
+
+Check service:
+
+kubectl get svc -n monitoring
+
+Find:
+
+grafana
+
+Port forward:
+
+kubectl port-forward svc/monitoring-grafana \
+3000:80 -n monitoring
+
+Open:
+
+http://localhost:3000
+Get Grafana Password
+kubectl get secret \
+monitoring-grafana \
+-n monitoring \
+-o jsonpath="{.data.admin-password}" | base64 --decode
+
+Username:
+
+admin
+
+Password:
+
+generated password
+Useful Dashboards
+
+Import IDs:
+
+315
+
+Kubernetes Dashboard
+
+6417
+
+Cluster Dashboard
+
+1860
+
+Node Exporter Dashboard
+
+Understanding Metrics
+
+Prometheus stores:
+
+node_cpu_seconds_total
+
+node_memory_available_bytes
+
+container_cpu_usage_seconds_total
+
+kube_pod_status_ready
+Example Query
+
+CPU Usage
+
+100 - (
+avg by(instance)
+(irate(node_cpu_seconds_total{mode="idle"}[5m]))
+*100
+)
+
+This calculates node CPU usage.
+
+Creating Alerts
+
+File:
+
+alerts.yaml
+groups:
+
+- name: kubernetes-alerts
+
+  rules:
+
+  - alert: HighCPUUsage
+
+    expr: node_cpu_seconds_total > 80
+
+    for: 2m
+
+    labels:
+
+      severity: warning
+
+    annotations:
+
+      summary: CPU Usage High
+Explanation
+alert
+HighCPUUsage
+
+Alert name.
+
+expr
+node_cpu_seconds_total > 80
+
+Condition.
+
+for
+2m
+
+Must remain true for:
+
+2 minutes
+
+before firing.
+
+Pod Failure Alert
+- alert: PodCrash
+
+  expr: kube_pod_status_phase{phase="Failed"} > 0
+
+  for: 1m
+
+  labels:
+
+    severity: critical
+
+  annotations:
+
+    summary: Pod Failed
+Node Failure Alert
+- alert: NodeDown
+
+  expr: up == 0
+
+  for: 1m
+
+  labels:
+
+    severity: critical
+
+  annotations:
+
+    summary: Node Down
+AlertManager Configuration
+
+File:
+
+alertmanager.yaml
+route:
+
+  receiver: email
+
+receivers:
+
+- name: email
+
+  email_configs:
+
+  - to: devops-team@example.com
+
+    from: alerts@example.com
+
+    smarthost: smtp.gmail.com:587
+
+    auth_username: alerts@example.com
+
+    auth_password: APP_PASSWORD
+Alert Flow
+Prometheus
+     │
+     ▼
+AlertManager
+     │
+     ▼
+Email
+Horizontal Pod Autoscaler (HPA)
+
+This is huge in interviews.
+
+Current State:
+
+3 Pods
+
+Traffic increases.
+
+CPU = 90%
+
+Need:
+
+More Pods
+
+Automatically.
+
+Install Metrics Server
+kubectl apply -f \
+https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+Verify:
+
+kubectl get pods -n kube-system
+
+Find:
+
+metrics-server
+Create HPA
+kubectl autoscale deployment frontend \
+--cpu-percent=70 \
+--min=3 \
+--max=10
+
+Verify
+
+kubectl get hpa
+
+Output:
+
+frontend
+
+3
+
+10
+
+70%
+What Happens?
+
+Normal:
+
+CPU = 20%
+
+Pods = 3
+
+Traffic Spike
+
+CPU = 80%
+
+Kubernetes:
+
+3 Pods → 5 Pods
+
+More Traffic
+
+CPU = 90%
+
+Kubernetes:
+
+5 Pods → 10 Pods
+
+Traffic Drops
+
+CPU = 15%
+
+Kubernetes:
+
+10 Pods → 3 Pods
+Production HPA YAML
+apiVersion: autoscaling/v2
+
+kind: HorizontalPodAutoscaler
+
+metadata:
+
+  name: frontend-hpa
+
+spec:
+
+  scaleTargetRef:
+
+    apiVersion: apps/v1
+
+    kind: Deployment
+
+    name: frontend
+
+  minReplicas: 3
+
+  maxReplicas: 10
+
+  metrics:
+
+  - type: Resource
+
+    resource:
+
+      name: cpu
+
+      target:
+
+        type: Utilization
+
+        averageUtilization: 70
+Cluster Autoscaler
+
+Many engineers forget this.
+
+Imagine:
+
+Node 1 = Full
+Node 2 = Full
+
+HPA wants:
+
+10 Pods
+
+But no resources available.
+
+Pods stay pending.
+
+Solution:
+
+Cluster Autoscaler
+
+Current:
+
+2 Nodes
+
+Traffic increases.
+
+Pods need space.
+
+Cluster Autoscaler:
+
+2 Nodes → 4 Nodes
+
+Automatically.
+
+Complete Auto Scaling Flow
+Traffic Increase
+      │
+      ▼
+CPU 85%
+      │
+      ▼
+HPA Detects
+      │
+      ▼
+3 Pods → 8 Pods
+      │
+      ▼
+Nodes Full
+      │
+      ▼
+Cluster Autoscaler
+      │
+      ▼
+2 Nodes → 4 Nodes
+Simulating Load
+
+Install:
+
+kubectl run load-generator \
+--image=busybox \
+--restart=Never \
+-- /bin/sh -c \
+"while true; do wget -q -O- http://frontend-service; done"
+
+Observe:
+
+kubectl get hpa -w
+
+Watch:
+
+Pods increase automatically
+Production Metrics to Monitor
+
+Always monitor:
+
+CPU Usage
+
+Memory Usage
+
+Disk Usage
+
+Pod Count
+
+Node Health
+
+Restart Count
+
+Network Traffic
+
+HTTP Errors
+
+Response Time
+
+Latency
+What You Have After Phase 4
+
+✅ Prometheus
+
+✅ Grafana
+
+✅ AlertManager
+
+✅ Dashboards
+
+✅ Alert Rules
+
+✅ Email Notifications
+
+✅ Metrics Server
+
+✅ HPA
+
+✅ Cluster Autoscaler Design
+
+✅ Production Monitoring
+
+What Comes Next (Phase 5)
+
+This is the most unique part of your project:
+
+Prometheus Alert
+       ↓
+AI Incident Engine
+       ↓
+Root Cause Analysis
+       ↓
+Incident Report
+       ↓
+Slack Alert
+       ↓
+Automatic Recovery
+
+That is the phase that will make interviewers remember your project because very few DevOps candidates build it.
+
+
+
+
+  -------------------------------------------------Phase 5 --------------------------------------------------------------
+
+
+
+
+  Phase 5 – AI Incident Analysis + Root Cause Detection + Automated Recovery
+
+This is the phase that makes your project different from 95% of DevOps projects on GitHub.
+
+Most projects stop here:
+
+Monitoring
+   ↓
+Alert
+   ↓
+Engineer Wakes Up
+   ↓
+Engineer Fixes Issue
+
+Your project:
+
+Monitoring
+   ↓
+Alert
+   ↓
+AI Analysis
+   ↓
+Root Cause Report
+   ↓
+Recovery Decision
+   ↓
+Automatic Fix
+   ↓
+Engineer Notification
+
+Now you are building an AIOps Platform (Artificial Intelligence for IT Operations).
+
+Real Production Scenario
+
+Imagine:
+
+12:00 PM
+
+CPU = 95%
+
+Memory = 90%
+
+Payment Service Slow
+
+Users Complaining
+
+Normally:
+
+DevOps Engineer Receives Alert
+
+Checks Logs
+
+Checks Metrics
+
+Checks Deployment
+
+Finds Problem
+
+Fixes Problem
+
+Time:
+
+15-30 Minutes
+
+Your platform should reduce it to:
+
+30-60 Seconds
+Architecture
+Prometheus
+      │
+      ▼
+AlertManager
+      │
+      ▼
+Webhook
+      │
+      ▼
+AI Incident Engine
+      │
+      ├── Analyze Alert
+      ├── Read Metrics
+      ├── Read Logs
+      ├── Determine Cause
+      ├── Generate Report
+      └── Trigger Recovery
+      │
+      ▼
+Slack / Email
+Create Namespace
+kubectl create namespace incident-management
+
+Verify:
+
+kubectl get ns
+
+Expected:
+
+incident-management
+Folder Structure
+incident-engine/
+
+├── app.py
+├── analyzer.py
+├── recovery.py
+├── requirements.txt
+├── Dockerfile
+│
+├── reports/
+│
+└── kubernetes/
+    ├── deployment.yaml
+    └── service.yaml
+requirements.txt
+flask
+requests
+kubernetes
+openai
+What Each Package Does
+flask
+
+Creates API endpoint.
+
+requests
+
+Calls Prometheus APIs.
+
+kubernetes
+
+Interacts with cluster.
+
+openai
+
+Generates AI incident analysis.
+
+app.py
+
+Main API.
+
+from flask import Flask, request
+from analyzer import analyze_incident
+from recovery import recover
+
+app = Flask(__name__)
+
+@app.route("/alert", methods=["POST"])
+def alert():
+
+    data = request.json
+
+    report = analyze_incident(data)
+
+    recover(report)
+
+    return {
+        "status": "processed",
+        "report": report
+    }
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+How It Works
+
+AlertManager sends:
+
+{
+  "alert":"HighCPU",
+  "service":"payment",
+  "cpu":"95"
+}
+
+Received by:
+
+@app.route("/alert")
+
+Then:
+
+analyze_incident()
+
+runs.
+
+After that:
+
+recover()
+
+runs.
+
+analyzer.py
+
+This is the brain.
+
+def analyze_incident(alert):
+
+    cpu = int(alert["cpu"])
+
+    service = alert["service"]
+
+    if cpu > 90:
+
+        cause = "Traffic Spike"
+
+        recommendation = "Scale Pods"
+
+    elif cpu > 80:
+
+        cause = "High Load"
+
+        recommendation = "Monitor Closely"
+
+    else:
+
+        cause = "Unknown"
+
+        recommendation = "Manual Investigation"
+
+    report = {
+
+        "service": service,
+
+        "cause": cause,
+
+        "recommendation": recommendation
+
+    }
+
+    return report
+What Happens?
+
+Input:
+
+{
+ "cpu":"95",
+ "service":"payment"
+}
+
+Output:
+
+{
+ "service":"payment",
+ "cause":"Traffic Spike",
+ "recommendation":"Scale Pods"
+}
+Adding OpenAI Analysis
+
+Instead of static logic:
+
+if cpu > 90
+
+Use AI.
+
+from openai import OpenAI
+
+client = OpenAI()
+
+Prompt:
+
+prompt = f"""
+
+CPU usage is 95%.
+
+Service is payment-service.
+
+Suggest:
+
+1. Root Cause
+
+2. Severity
+
+3. Recommended Action
+
+"""
+
+Generate report:
+
+response = client.responses.create(
+    model="gpt-4.1",
+    input=prompt
+)
+
+AI Output Example
+
+Root Cause:
+Traffic Spike
+
+Severity:
+Critical
+
+Action:
+Scale Pods to 10
+
+Check Database Latency
+
+Review Recent Deployment
+recovery.py
+
+This performs actions.
+
+from kubernetes import client, config
+
+config.load_incluster_config()
+
+Connect cluster.
+
+apps = client.AppsV1Api()
+
+Scale deployment.
+
+def scale_deployment(name, replicas):
+
+    body = {
+        "spec": {
+            "replicas": replicas
+        }
+    }
+
+    apps.patch_namespaced_deployment_scale(
+        name=name,
+        namespace="production",
+        body=body
+    )
+
+Recovery Logic
+
+def recover(report):
+
+    if report["recommendation"] == "Scale Pods":
+
+        scale_deployment(
+            "payment-service",
+            10
+        )
+
+What Happens?
+
+Current:
+
+payment-service
+
+3 Pods
+
+AI Recommendation:
+
+Scale Pods
+
+Recovery executes:
+
+scale_deployment()
+
+Result:
+
+3 Pods
+ ↓
+10 Pods
+Dockerfile
+FROM python:3.11
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install -r requirements.txt
+
+EXPOSE 5000
+
+CMD ["python","app.py"]
+Build Image
+docker build -t incident-engine .
+
+Push To ECR
+
+docker tag incident-engine:latest \
+ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/incident-engine:latest
+
+docker push \
+ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/incident-engine:latest
+Kubernetes Deployment
+
+deployment.yaml
+
+apiVersion: apps/v1
+
+kind: Deployment
+
+metadata:
+  name: incident-engine
+
+spec:
+
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: incident-engine
+
+  template:
+
+    metadata:
+      labels:
+        app: incident-engine
+
+    spec:
+
+      containers:
+
+      - name: incident-engine
+
+        image: incident-engine:latest
+
+        ports:
+
+        - containerPort: 5000
+
+Deploy
+
+kubectl apply -f deployment.yaml
+Service
+apiVersion: v1
+
+kind: Service
+
+metadata:
+  name: incident-engine
+
+spec:
+
+  selector:
+    app: incident-engine
+
+  ports:
+
+  - port: 5000
+
+    targetPort: 5000
+AlertManager Integration
+
+alertmanager.yaml
+
+receivers:
+
+- name: ai-engine
+
+  webhook_configs:
+
+  - url: http://incident-engine:5000/alert
+
+Now flow becomes:
+
+Prometheus
+      │
+      ▼
+AlertManager
+      │
+      ▼
+AI Engine
+Incident Report Generator
+
+Create:
+
+def create_report(report):
+
+    with open("/reports/report.txt","w") as f:
+
+        f.write(str(report))
+
+Output:
+
+INCIDENT REPORT
+
+Service:
+payment-service
+
+Root Cause:
+Traffic Spike
+
+Severity:
+Critical
+
+Action:
+Scaled From 3 Pods To 10 Pods
+
+Status:
+Recovered
+Slack Notification
+
+Install:
+
+import requests
+
+Send message.
+
+requests.post(
+WEBHOOK_URL,
+
+json={
+"text":
+"Payment Service recovered automatically"
+}
+)
+
+Slack Output
+
+🚨 INCIDENT
+
+Service:
+payment-service
+
+Cause:
+Traffic Spike
+
+Action:
+Scaled Pods
+
+Status:
+Recovered
+Complete Incident Flow
+12:00 PM
+CPU = 95%
+12:00:05
+
+Prometheus detects.
+
+12:00:10
+
+AlertManager fires.
+
+12:00:15
+
+AI Engine receives alert.
+
+12:00:20
+
+AI analyzes.
+
+Cause:
+Traffic Spike
+12:00:25
+
+Incident report generated.
+
+12:00:30
+
+Recovery action executed.
+
+3 Pods → 10 Pods
+12:00:35
+
+Slack notified.
+
+12:00:40
+
+CPU drops.
+
+95% → 50%
+12:01 PM
+
+Application healthy.
+
+What You Have After Phase 5
+
+✅ Prometheus Monitoring
+
+✅ Grafana Dashboards
+
+✅ AlertManager
+
+✅ AI Incident Engine
+
+✅ Root Cause Analysis
+
+✅ Incident Reports
+
+✅ Slack Notifications
+
+✅ Automated Recovery
+
+✅ Pod Scaling Automation
+
+✅ Production AIOps Workflow
+
+Final Architecture After Phase 5
+Terraform
+    │
+    ▼
+AWS Infrastructure
+    │
+    ▼
+EKS Cluster
+    │
+    ▼
+Jenkins CI/CD
+    │
+    ▼
+Docker Images
+    │
+    ▼
+Amazon ECR
+    │
+    ▼
+Kubernetes Deployments
+    │
+    ▼
+Prometheus Monitoring
+    │
+    ▼
+Grafana Dashboards
+    │
+    ▼
+AlertManager
+    │
+    ▼
+AI Incident Engine
+    │
+    ▼
+Root Cause Analysis
+    │
+    ▼
+Automated Recovery
+    │
+    ▼
+Slack / Email Notifications
+
+
+
+
+  ----------------------------------------------phase 6-------------------------------------------------------------------
+
+
+
+
+
+  Phase 6 – Enterprise Security + Disaster Recovery + GitOps + Production Hardening
+
+This phase is where your project starts looking like something that could run in a real company.
+
+After Phase 5, many interviewers will already be impressed.
+
+But if you add Phase 6, you can confidently say:
+
+"I built a production-grade self-healing platform with CI/CD, monitoring, auto-scaling, AI incident response, security hardening, disaster recovery, and GitOps deployment on AWS EKS."
+
+That is much stronger than most fresher projects.
+
+Current Architecture
+Terraform
+   ↓
+AWS Infrastructure
+   ↓
+EKS
+   ↓
+Jenkins
+   ↓
+Docker
+   ↓
+ECR
+   ↓
+Kubernetes
+   ↓
+Prometheus
+   ↓
+Grafana
+   ↓
+AlertManager
+   ↓
+AI Engine
+Production Problems Still Remaining
+
+Current platform still has risks.
+
+Problem 1
+
+Secrets stored in code.
+
+Bad:
+
+DB_PASSWORD=mypassword123
+
+If GitHub is leaked:
+
+Database Compromised
+Problem 2
+
+Cluster backup missing.
+
+If EKS accidentally deleted:
+
+Everything Lost
+Problem 3
+
+Container vulnerabilities unknown.
+
+Docker Image
+Contains Vulnerability
+
+Nobody knows.
+
+Problem 4
+
+Deployment still controlled by Jenkins.
+
+Modern companies use:
+
+GitOps
+Phase 6 Goals
+
+We will add:
+
+Secrets Manager
+
+IAM Roles
+
+IRSA
+
+Trivy Security Scan
+
+ArgoCD
+
+Velero Backup
+
+Disaster Recovery
+
+Multi-AZ Design
+
+Production Security
+Part 1
+Secrets Management
+Wrong Way
+env:
+
+- name: DB_PASSWORD
+
+  value: mypassword123
+
+Never do this.
+
+AWS Secrets Manager
+
+Store secret:
+
+payment-db-password
+
+Value:
+
+SuperSecurePassword123
+Create Secret
+aws secretsmanager create-secret \
+--name payment-db-password \
+--secret-string "SuperSecurePassword123"
+Kubernetes Secret
+
+Example:
+
+apiVersion: v1
+
+kind: Secret
+
+metadata:
+
+  name: payment-secret
+
+type: Opaque
+
+data:
+
+  password: U3VwZXJTZWNyZXQ=
+Use Secret
+env:
+
+- name: DB_PASSWORD
+
+  valueFrom:
+
+    secretKeyRef:
+
+      name: payment-secret
+
+      key: password
+Why?
+
+Application gets password.
+
+Developers never see password.
+
+Part 2
+IAM Roles For Service Accounts (IRSA)
+
+Many beginners use:
+
+Access Key
+
+Secret Key
+
+inside Pods.
+
+Dangerous.
+
+Better Approach
+Pod
+ ↓
+IAM Role
+ ↓
+AWS Service
+
+No credentials stored.
+
+Example
+
+Payment Service needs:
+
+Read S3
+
+Only.
+
+Create IAM Policy:
+
+{
+  "Version":"2012-10-17",
+
+  "Statement":[
+
+    {
+
+      "Effect":"Allow",
+
+      "Action":[
+
+        "s3:GetObject"
+
+      ],
+
+      "Resource":"*"
+
+    }
+
+  ]
+
+}
+
+Attach to Service Account.
+
+apiVersion: v1
+
+kind: ServiceAccount
+
+metadata:
+
+  name: payment-sa
+
+Now Pod receives permissions securely.
+
+Part 3
+Container Security Scanning
+
+This impresses interviewers.
+
+Install Trivy
+
+On Jenkins:
+
+sudo apt install wget -y
+
+wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy.deb
+
+sudo dpkg -i trivy.deb
+Scan Docker Image
+trivy image self-healing-app
+
+Output:
+
+CRITICAL : 2
+
+HIGH : 8
+
+MEDIUM : 12
+Jenkins Stage
+stage('Security Scan') {
+
+ steps {
+
+  sh '''
+
+  trivy image self-healing-app
+
+  '''
+
+ }
+
+}
+New Pipeline
+Checkout
+ ↓
+Build
+ ↓
+Test
+ ↓
+Docker Build
+ ↓
+Trivy Scan
+ ↓
+Push ECR
+ ↓
+Deploy EKS
+Part 4
+GitOps
+
+Very important.
+
+Traditional Deployment
+Developer
+   ↓
+Jenkins
+   ↓
+kubectl apply
+
+Problem:
+
+Changes made manually.
+
+Hard to track.
+
+GitOps
+
+Everything stored in Git.
+
+Git Repository
+      ↓
+ArgoCD
+      ↓
+Kubernetes
+Install ArgoCD
+kubectl create namespace argocd
+
+Install:
+
+kubectl apply -n argocd \
+-f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+Create Application
+apiVersion: argoproj.io/v1alpha1
+
+kind: Application
+
+metadata:
+
+  name: self-healing-app
+
+What happens?
+
+Git changes.
+
+↓
+
+ArgoCD detects.
+
+↓
+
+Automatically syncs cluster.
+
+Interview Impact
+
+Interviewer:
+
+What is GitOps?
+
+You:
+
+ArgoCD continuously compares the desired state in Git with the actual state in Kubernetes and automatically reconciles any drift.
+
+This sounds very strong.
+
+Part 5
+Velero Backup
+
+Imagine.
+
+Developer accidentally runs:
+
+kubectl delete namespace production
+
+Everything deleted.
+
+Solution
+
+Velero.
+
+Install:
+
+velero install
+
+Daily Backup
+
+velero backup create daily-backup
+
+Restore
+
+velero restore create \
+--from-backup daily-backup
+Disaster Recovery
+Current Region
+Mumbai
+ap-south-1
+DR Region
+Hyderabad
+future AWS region
+
+or
+
+Singapore
+ap-southeast-1
+Backup Strategy
+
+Store:
+
+Terraform State
+
+Application Images
+
+Database Backups
+
+Velero Backups
+
+In:
+
+Amazon S3
+
+Recovery Flow
+
+Region Failure
+
+↓
+
+Terraform Rebuilds Infrastructure
+
+↓
+
+Velero Restores Cluster
+
+↓
+
+Application Restored
+
+Part 6
+Pod Security
+
+Prevent containers from running as root.
+
+Bad:
+
+runAsUser: 0
+
+Good:
+
+securityContext:
+
+  runAsNonRoot: true
+
+  runAsUser: 1001
+Resource Limits
+
+Without limits:
+
+Pod Consumes Entire Node
+
+Add:
+
+resources:
+
+  requests:
+
+    cpu: "100m"
+
+    memory: "128Mi"
+
+  limits:
+
+    cpu: "500m"
+
+    memory: "512Mi"
+Network Policies
+
+Only allow required communication.
+
+Example:
+
+Frontend
+ ↓
+Backend
+ ↓
+Database
+
+Block everything else.
+
+Final Enterprise Architecture
+GitHub
+   │
+   ▼
+Jenkins
+   │
+   ├── Build
+   ├── Test
+   ├── Trivy Scan
+   └── Push ECR
+   │
+   ▼
+ArgoCD
+   │
+   ▼
+Amazon EKS
+   │
+   ├── Frontend
+   ├── Backend
+   ├── Payment
+   ├── Inventory
+   ├── AI Engine
+   │
+   ▼
+Prometheus
+   │
+   ▼
+Grafana
+   │
+   ▼
+AlertManager
+   │
+   ▼
+AI Incident Analysis
+   │
+   ▼
+Automated Recovery
+   │
+   ▼
+Slack / Email
+
+----------------------
+
+Security Layer
+
+IAM Roles
+IRSA
+Secrets Manager
+Trivy
+
+----------------------
+
+Backup Layer
+
+Velero
+S3
+
+----------------------
+
+GitOps Layer
+
+ArgoCD
+What You Have After Phase 6
+
+✅ Terraform Infrastructure as Code
+
+✅ AWS VPC Architecture
+
+✅ Amazon EKS
+
+✅ Jenkins CI/CD
+
+✅ Docker & ECR
+
+✅ Kubernetes Deployments
+
+✅ Rolling Updates
+
+✅ Prometheus Monitoring
+
+✅ Grafana Dashboards
+
+✅ AlertManager
+
+✅ Auto Scaling (HPA)
+
+✅ Self-Healing Pods
+
+✅ AI Incident Analysis
+
+✅ Automated Recovery
+
+✅ Trivy Security Scanning
+
+✅ Secrets Management
+
+✅ IRSA
+
+✅ ArgoCD GitOps
+
+✅ Velero Backup & Restore
+
+✅ Disaster Recovery Design
+
+✅ Production Hardening
+
+
+
+
+
+  ---------------------------------------------------Phase 7-------------------------------------------------------------------------
+
+
+
+  No.
+
+In the architecture I described, there are four environments:
+
+DEV
+QA
+UAT
+PROD
+
+I started explaining DEV and QA, but the explanation for UAT and PROD was cut off when the conversation stopped.
+
+why do you cut off please continue 
+
+The response was cut off because it became very long. Continuing from where we
+
+ok no problem now continue 
+
+Great. Let's continue Phase 7 – Multi-Environment Enterprise Platform (DEV → QA → UAT → PROD) exactly where we stopped.
+
+UAT Environment
+What is UAT?
+
+UAT means:
+
+User Acceptance Testing
+
+This is the final validation before production.
+
+Who Uses UAT?
+
+Not developers.
+
+Not QA engineers.
+
+Usually:
+
+Business Team
+
+Product Owner
+
+Client
+
+Project Manager
+
+Stakeholders
+Example
+
+Suppose your company is building:
+
+Online Banking Application
+
+Developer says:
+
+Feature Completed
+
+QA says:
+
+All Tests Passed
+
+But business team checks:
+
+Transfer Money
+
+And notices:
+
+Transfer limit is wrong
+
+Application works technically.
+
+Business requirement is wrong.
+
+Why UAT Exists
+
+To verify:
+
+Business Logic
+
+User Experience
+
+Business Rules
+
+Compliance Requirements
+
+Before production.
+
+UAT Deployment
+replicas: 2
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+
+Purpose:
+
+Production-like Testing
+PROD Environment
+
+This is where real users access application.
+
+Production Environment
+Internet Users
+      │
+      ▼
+Load Balancer
+      │
+      ▼
+Production Pods
+Production Deployment
+replicas: 3
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+Why More Replicas?
+
+DEV:
+
+1 Pod
+
+QA:
+
+2 Pods
+
+UAT:
+
+2 Pods
+
+PROD:
+
+3+ Pods
+
+If one pod crashes:
+
+Users Still Connected
+Multi-Environment Folder Structure
+
+A real company repository might look like:
+
+self-healing-platform/
+
+├── terraform
+│
+├── jenkins
+│
+├── kubernetes
+│
+├── environments
+│
+│   ├── dev
+│   │    ├── deployment.yaml
+│   │    └── service.yaml
+│
+│   ├── qa
+│   │    ├── deployment.yaml
+│   │    └── service.yaml
+│
+│   ├── uat
+│   │    ├── deployment.yaml
+│   │    └── service.yaml
+│
+│   └── prod
+│        ├── deployment.yaml
+│        └── service.yaml
+Git Branch Strategy
+
+Most companies don't deploy from one branch.
+
+Branch Structure
+main
+
+develop
+
+release
+
+feature/ 
+Feature Branch
+
+Developer creates:
+
+git checkout -b feature/payment-api
+
+Works on feature.
+
+Pushes code.
+
+Develop Branch
+
+All features merge into:
+
+develop
+
+Used for DEV environment.
+
+Release Branch
+
+Before UAT:
+
+release/v1.0
+
+Created.
+
+Used for QA and UAT.
+
+Main Branch
+
+Only production-ready code.
+
+main
+
+Used for PROD.
+
+CI/CD Flow
+Feature Branch
+      │
+      ▼
+Develop
+      │
+      ▼
+DEV Deployment
+      │
+      ▼
+QA Approval
+      │
+      ▼
+QA Deployment
+      │
+      ▼
+UAT Approval
+      │
+      ▼
+UAT Deployment
+      │
+      ▼
+Production Approval
+      │
+      ▼
+PROD Deployment
+Jenkins Multi-Stage Pipeline
+Stage 1
+Checkout
+
+Stage 2
+Build
+
+Stage 3
+Unit Test
+
+Stage 4
+Docker Build
+
+Stage 5
+Trivy Scan
+
+Stage 6
+Push ECR
+
+Stage 7
+Deploy DEV
+
+Stage 8
+QA Approval
+
+Stage 9
+Deploy QA
+
+Stage 10
+UAT Approval
+
+Stage 11
+Deploy UAT
+
+Stage 12
+Production Approval
+
+Stage 13
+Deploy PROD
+Manual Approval Example
+
+In Jenkins:
+
+stage('Approve QA') {
+
+  steps {
+
+    input 'Deploy to QA?'
+
+  }
+
+}
+What Happens?
+
+Pipeline stops.
+
+Manager or Lead reviews.
+
+Clicks:
+
+Proceed
+
+Then deployment continues.
+
+Blue-Green Deployment
+
+Very important for production.
+
+Current:
+
+Blue Environment
+
+Version 1
+
+New:
+
+Green Environment
+
+Version 2
+
+Users:
+
+100%
+
+Still accessing:
+
+Blue
+
+Testing:
+
+Green
+
+Done safely.
+
+Switch:
+
+Blue → Green
+
+Instant.
+
+Rollback:
+
+Green → Blue
+
+Instant.
+
+Canary Deployment
+
+Even more advanced.
+
+Current:
+
+Version 1
+
+New:
+
+Version 2
+
+Traffic Distribution
+
+90% → Version 1
+
+10% → Version 2
+
+Monitor:
+
+Errors
+
+Latency
+
+CPU
+
+Memory
+
+If healthy:
+
+50% → Version 2
+
+Then:
+
+100% → Version 2
+Production SLO Monitoring
+
+Monitor:
+
+Availability
+
+Latency
+
+Error Rate
+
+Response Time
+
+Throughput
+Example SLO
+99.9% Uptime
+
+Allowed downtime:
+
+43 Minutes / Month
+Production Incident Flow
+Application Problem
+        │
+        ▼
+Prometheus Detects
+        │
+        ▼
+AlertManager
+        │
+        ▼
+AI Incident Engine
+        │
+        ▼
+Root Cause Analysis
+        │
+        ▼
+Auto Recovery
+        │
+        ▼
+Slack Notification
+Final Enterprise Architecture
+GitHub
+   │
+   ▼
+Jenkins
+   │
+   ▼
+Trivy Security Scan
+   │
+   ▼
+Amazon ECR
+   │
+   ▼
+ArgoCD
+   │
+   ▼
+Amazon EKS
+   │
+   ├── DEV Namespace
+   ├── QA Namespace
+   ├── UAT Namespace
+   └── PROD Namespace
+   │
+   ▼
+Prometheus
+   │
+   ▼
+Grafana
+   │
+   ▼
+AlertManager
+   │
+   ▼
+AI Incident Engine
+   │
+   ▼
+Auto Recovery
+   │
+   ▼
+Slack / Email
+   │
+   ▼
+Velero Backups
+   │
+   ▼
+Amazon S3
+After Phase 7
+
+You now have a project covering:
+
+✅ Linux
+
+✅ Git
+
+✅ GitHub
+
+✅ Jenkins
+
+✅ Docker
+
+✅ Amazon ECR
+
+✅ Terraform
+
+✅ AWS Networking
+
+✅ EKS
+
+✅ Kubernetes
+
+✅ HPA
+
+✅ Cluster Autoscaler
+
+✅ Prometheus
+
+✅ Grafana
+
+✅ AlertManager
+
+✅ AI Incident Analysis
+
+✅ Automated Recovery
+
+✅ Trivy Security Scanning
+
+✅ Secrets Management
+
+✅ IRSA
+
+✅ ArgoCD
+
+✅ Velero
+
+✅ Disaster Recovery
+
+✅ Multi-Environment Deployments
+
+✅ Blue-Green Deployments
+
+✅ Canary Deployments
+
+✅ Enterprise CI/CD Pipeline
+
+
+  ---------------------------------------------------phase 8----------------------------------------------------
+
+
+
+  Phase 8 – Observability + SRE + Chaos Engineering + Cost Optimization
+
+Now we are entering territory that many 2–4 year experienced DevOps Engineers don't fully implement.
+
+After Phase 7 your platform is already production-ready.
+
+Phase 8 makes it:
+
+Production Ready
+        ↓
+Enterprise Ready
+        ↓
+Site Reliability Engineering (SRE) Ready
+Why Phase 8?
+
+Imagine.
+
+Your application is healthy.
+
+Pods are running.
+
+Monitoring works.
+
+Auto Scaling works.
+
+AI Incident Engine works.
+
+Question:
+
+How do you know the system will survive a real disaster?
+
+You don't.
+
+That's where Chaos Engineering comes in.
+
+New Components
+Application
+     │
+     ▼
+OpenTelemetry
+     │
+     ▼
+Prometheus
+     │
+     ▼
+Grafana
+
+-----------------
+
+Jaeger
+
+-----------------
+
+Chaos Engineering
+
+-----------------
+
+Cost Monitoring
+
+-----------------
+
+SLO Tracking
+Part 1
+Observability vs Monitoring
+
+Many interviewers ask this.
+
+Monitoring
+
+Monitoring tells you:
+
+CPU = 90%
+
+Memory = 80%
+
+Problem detected.
+
+Observability
+
+Observability tells you:
+
+Why CPU became 90%
+
+Which service caused it
+
+Which request caused it
+
+Which database query caused it
+
+Much more powerful.
+
+Three Pillars of Observability
+Metrics
+
+Logs
+
+Traces
+Metrics
+
+Collected by:
+
+Prometheus
+
+Examples:
+
+CPU
+
+Memory
+
+Latency
+
+Requests
+Logs
+
+Collected by:
+
+Fluent Bit
+
+Loki
+
+ELK
+Traces
+
+Collected by:
+
+OpenTelemetry
+
+Jaeger
+Final Observability Stack
+Application
+      │
+      ▼
+OpenTelemetry
+      │
+      ▼
+Jaeger
+
+----------------
+
+Prometheus
+
+----------------
+
+Loki
+Part 2
+Centralized Logging
+
+Production problem.
+
+Suppose:
+
+Pod Crashed
+
+Bad Approach
+
+kubectl logs pod-name
+
+Works for one pod.
+
+Imagine:
+
+300 Pods
+
+Impossible.
+
+Solution
+
+Centralized Logging
+
+Pods
+   │
+   ▼
+Fluent Bit
+   │
+   ▼
+Loki
+   │
+   ▼
+Grafana
+Install Loki
+helm repo add grafana \
+https://grafana.github.io/helm-charts
+
+helm repo update
+
+Install:
+
+helm install loki grafana/loki-stack \
+-n monitoring
+Benefits
+
+Search logs:
+
+ERROR
+
+Database Failure
+
+Payment Error
+
+Timeout
+
+Across entire cluster.
+
+Part 3
+Distributed Tracing
+
+This is huge in microservices.
+
+Imagine:
+
+Frontend
+    │
+    ▼
+Payment Service
+    │
+    ▼
+Inventory Service
+    │
+    ▼
+Database
+
+User reports:
+
+Order Creation Slow
+
+Which service is slow?
+
+Nobody knows.
+
+OpenTelemetry
+
+Install instrumentation.
+
+Example:
+
+from opentelemetry import trace
+
+Every request gets:
+
+Trace ID
+Jaeger
+
+Stores traces.
+
+Flow:
+
+Frontend
+    ↓
+Payment
+    ↓
+Inventory
+    ↓
+Database
+
+Shows exact timing.
+
+Example:
+
+Frontend = 20ms
+
+Payment = 40ms
+
+Inventory = 35ms
+
+Database = 2500ms
+
+Problem identified immediately.
+
+Part 4
+SLO Monitoring
+
+Very important SRE concept.
+
+SLA
+
+Agreement with customer.
+
+Example:
+
+99.9% Availability
+SLI
+
+Measurement.
+
+Example:
+
+Successful Requests
+SLO
+
+Target.
+
+Example:
+
+99.9% uptime
+Error Budget
+
+Allowed downtime.
+
+Example:
+
+99.9%
+
+Means:
+
+43.8 minutes downtime
+per month
+Dashboard
+
+Create Grafana dashboard.
+
+Track:
+
+Availability
+
+Latency
+
+Error Rate
+
+Traffic
+Part 5
+Chaos Engineering
+
+This is where interviewers become interested.
+
+Question:
+
+What happens if a node dies?
+
+Most candidates:
+
+I don't know.
+
+You:
+
+I tested it using Chaos Engineering.
+
+Immediate impact.
+
+What Is Chaos Engineering?
+
+Deliberately break things.
+
+Verify recovery.
+
+Test 1
+
+Kill Pod
+
+kubectl delete pod POD_NAME
+
+Expected:
+
+Kubernetes Creates New Pod
+Test 2
+
+Kill Deployment
+
+kubectl scale deployment frontend \
+--replicas=0
+
+Observe alerts.
+
+Test 3
+
+Kill Node
+
+kubectl drain NODE_NAME
+
+Expected:
+
+Pods Move To Other Nodes
+Test 4
+
+Database Failure
+
+Stop database.
+
+Expected:
+
+Alert Fired
+
+AI Engine Triggered
+
+Recovery Started
+LitmusChaos
+
+Install:
+
+kubectl apply -f \
+https://litmuschaos.github.io/litmus/litmus-operator-v3.0.0.yaml
+
+Run experiments:
+
+Pod Delete
+
+Network Delay
+
+CPU Stress
+
+Memory Stress
+
+Node Failure
+Part 6
+Cost Optimization
+
+Very important in AWS.
+
+Many engineers ignore it.
+
+Companies don't.
+
+Cost Monitoring
+
+Track:
+
+EC2
+
+EKS
+
+EBS
+
+NAT Gateway
+
+Load Balancer
+
+S3
+AWS Cost Explorer
+
+Monitor:
+
+Daily Cost
+
+Monthly Cost
+
+Service Cost
+Example
+
+Bad:
+
+5 Nodes Running
+
+Night Time
+
+No Traffic
+
+Cost wasted.
+
+Good:
+
+Cluster Autoscaler
+
+2 Nodes
+
+Reduced cost.
+
+Spot Instances
+
+For non-critical workloads.
+
+Example:
+
+DEV
+
+QA
+
+Monitoring
+
+Use:
+
+EC2 Spot Instances
+
+Save:
+
+60%-90%
+Part 7
+Production Security Monitoring
+
+Install:
+
+Falco
+
+Purpose:
+
+Detect suspicious activity.
+
+Example:
+
+Container Opens Shell
+
+Unexpected Network Traffic
+
+Privilege Escalation
+
+Alert:
+
+Potential Security Threat
+Final Phase 8 Architecture
+GitHub
+   │
+   ▼
+Jenkins
+   │
+   ▼
+Trivy Scan
+   │
+   ▼
+Amazon ECR
+   │
+   ▼
+ArgoCD
+   │
+   ▼
+Amazon EKS
+   │
+   ├── DEV
+   ├── QA
+   ├── UAT
+   └── PROD
+   │
+   ▼
+Prometheus
+   │
+   ▼
+Grafana
+   │
+   ▼
+AlertManager
+   │
+   ▼
+AI Incident Engine
+   │
+   ▼
+Automated Recovery
+
+---------------------
+
+Observability Layer
+
+OpenTelemetry
+Jaeger
+Loki
+
+---------------------
+
+SRE Layer
+
+SLO
+SLI
+Error Budgets
+
+---------------------
+
+Chaos Engineering
+
+LitmusChaos
+
+---------------------
+
+Security Layer
+
+Falco
+Trivy
+IRSA
+Secrets Manager
+
+---------------------
+
+Disaster Recovery
+
+Velero
+S3
+
+---------------------
+
+Cost Optimization
+
+Cost Explorer
+Cluster Autoscaler
+Spot Instances
+After Phase 8
+
+Your project now demonstrates:
+
+✅ Infrastructure as Code (Terraform)
+
+✅ AWS Architecture Design
+
+✅ EKS Production Platform
+
+✅ CI/CD (Jenkins)
+
+✅ GitOps (ArgoCD)
+
+✅ Containerization (Docker)
+
+✅ Monitoring (Prometheus)
+
+✅ Visualization (Grafana)
+
+✅ Alerting (AlertManager)
+
+✅ Auto Scaling (HPA + Cluster Autoscaler)
+
+✅ Self-Healing
+
+✅ AI Incident Analysis
+
+✅ Automated Recovery
+
+✅ Security Scanning (Trivy)
+
+✅ Runtime Security (Falco)
+
+✅ Secrets Management
+
+✅ Disaster Recovery (Velero)
+
+✅ Multi-Environment Strategy
+
+✅ Blue-Green Deployments
+
+✅ Canary Deployments
+
+✅ Centralized Logging (Loki)
+
+✅ Distributed Tracing (Jaeger)
+
+✅ OpenTelemetry
+
+✅ SRE Concepts (SLI/SLO/Error Budget)
+
+✅ Chaos Engineering (LitmusChaos)
+
+✅ Cost Optimization
+
+
+ ------------------------------------------------------- phase 9 ----------------------------------------------
+
+
+  Phase 9 – Platform Engineering + Internal Developer Platform (IDP)
+
+Now we move from:
+
+DevOps Engineer
+
+to
+
+Platform Engineer
+
+This is where companies like Netflix, Spotify, Uber, Airbnb, and large enterprises operate.
+
+Why Phase 9?
+
+Current situation:
+
+Developer
+    │
+    ▼
+Creates YAML
+    │
+    ▼
+Creates Dockerfile
+    │
+    ▼
+Creates Jenkins Pipeline
+    │
+    ▼
+Creates Monitoring
+
+Problem:
+
+Every developer repeats the same work.
+
+Real Company Problem
+
+Imagine:
+
+50 Developers
+
+100 Microservices
+
+20 Teams
+
+Every team creates:
+
+deployment.yaml
+
+service.yaml
+
+ingress.yaml
+
+HPA.yaml
+
+monitoring.yaml
+
+Huge duplication.
+
+Huge mistakes.
+
+Platform Engineering Solution
+
+Create:
+
+Internal Developer Platform
+
+Developers only provide:
+
+Application Name
+
+Port
+
+Image
+
+Everything else is automatic.
+
+New Architecture
+Developer
+     │
+     ▼
+Developer Portal
+     │
+     ▼
+Platform API
+     │
+     ▼
+Git Repository
+     │
+     ▼
+ArgoCD
+     │
+     ▼
+Kubernetes
+Goal
+
+Developer clicks:
+
+Create Service
+
+Platform automatically creates:
+
+Git Repository
+
+Dockerfile
+
+Jenkins Pipeline
+
+Deployment
+
+Service
+
+Ingress
+
+Monitoring
+
+Alerting
+
+HPA
+Internal Developer Portal
+
+Create portal using:
+
+Backstage
+
+What is Backstage?
+
+Originally created by:
+
+Spotify
+
+Purpose:
+
+Developer Self Service
+Example
+
+Developer fills:
+
+Application Name:
+payment-service
+
+Port:
+8080
+
+Language:
+Java
+
+Portal generates:
+
+Git Repository
+
+Dockerfile
+
+Jenkinsfile
+
+Helm Charts
+
+ArgoCD App
+
+Monitoring
+
+Automatically.
+
+Platform Templates
+
+Template:
+
+service-name: payment
+
+language: java
+
+port: 8080
+
+Generated Resources
+
+payment-service/
+
+├── Dockerfile
+├── Jenkinsfile
+├── helm
+├── kubernetes
+└── monitoring
+Why Interviewers Like This
+
+Most candidates say:
+
+I deployed applications.
+
+You say:
+
+I built a self-service platform where developers can create production-ready services with monitoring, alerting, CI/CD, security, and GitOps automatically.
+
+Very different level.
+
+Standardized CI/CD
+
+Current:
+
+Team A Pipeline
+
+Team B Pipeline
+
+Team C Pipeline
+
+Different everywhere.
+
+Platform Approach:
+
+Shared Jenkins Library
+
+Example
+
+@Library('platform-library')
+
+deployApplication()
+
+Every service follows same standards.
+
+Jenkins Shared Library
+
+Structure:
+
+shared-library/
+
+├── vars
+│
+├── deploy.groovy
+│
+├── build.groovy
+│
+└── securityScan.groovy
+
+Now every application can use:
+
+build()
+
+securityScan()
+
+deploy()
+Helm Standardization
+
+Current:
+
+Every team writes YAML.
+
+Platform:
+
+Create Helm templates.
+
+helm-chart/
+
+├── deployment.yaml
+
+├── service.yaml
+
+├── ingress.yaml
+
+├── hpa.yaml
+
+Developer only updates:
+
+image:
+  repository: payment
+
+replicas: 3
+
+Everything generated automatically.
+
+Service Catalog
+
+Backstage provides:
+
+Inventory Service
+
+Payment Service
+
+User Service
+
+Notification Service
+
+Track:
+
+Owner
+
+Environment
+
+Repository
+
+Monitoring
+
+Documentation
+Example Service Registration
+apiVersion: backstage.io/v1alpha1
+
+kind: Component
+
+metadata:
+
+  name: payment-service
+
+Benefits
+
+Easy Discovery
+
+Ownership Tracking
+
+Dependency Tracking
+Dependency Mapping
+
+Example
+
+Frontend
+     │
+     ▼
+Payment
+     │
+     ▼
+Database
+
+Platform knows:
+
+Which service depends on which.
+Golden Paths
+
+Very popular Platform Engineering concept.
+
+Current
+
+Developer asks:
+
+How do I deploy Java app?
+
+Platform provides:
+
+Java Golden Path
+
+Everything preconfigured.
+
+Example Paths
+
+Java Spring Boot
+
+Python Flask
+
+NodeJS
+
+React
+
+Developer chooses template.
+
+Platform handles everything else.
+
+Automated Documentation
+
+Generate:
+
+API Docs
+
+Deployment Docs
+
+Architecture Docs
+
+Automatically.
+
+Developer Scorecards
+
+Track:
+
+Security
+
+Monitoring
+
+Documentation
+
+Testing
+
+Reliability
+
+Example
+
+Payment Service
+
+Security:
+95%
+
+Monitoring:
+100%
+
+Documentation:
+80%
+Multi-Cluster Management
+
+Current:
+
+One Cluster
+
+Enterprise:
+
+DEV Cluster
+
+QA Cluster
+
+PROD Cluster
+
+DR Cluster
+
+ArgoCD manages all.
+
+ArgoCD
+   │
+   ├── DEV
+   ├── QA
+   ├── PROD
+   └── DR
+Cluster Federation
+
+Future expansion.
+
+Mumbai Cluster
+
+Singapore Cluster
+
+US Cluster
+
+Traffic routed automatically.
+
+Global High Availability
+India Region
+       │
+       ▼
+Singapore Region
+       │
+       ▼
+US Region
+
+If Mumbai fails:
+
+Traffic
+     ▼
+Singapore
+Advanced AI Integration
+
+Current AI:
+
+Root Cause Analysis
+
+Phase 9 AI:
+
+Predict Incidents
+
+Predict Capacity
+
+Predict Cost
+
+Predict Failures
+
+Example
+
+AI notices:
+
+CPU increasing
+every day
+
+Prediction:
+
+Node Capacity Exhausted
+within 3 days
+
+Create recommendation:
+
+Add Node Group
+
+Before outage happens.
+
+Cost Optimization Engine
+
+Analyze:
+
+Unused EC2
+
+Unused EBS
+
+Unused Load Balancers
+
+Generate report:
+
+Potential Savings:
+$500/month
+Reliability Dashboard
+
+Track:
+
+Availability
+
+Latency
+
+Error Rate
+
+MTTR
+
+MTBF
+
+Important Interview Topic
+
+MTTR
+
+Mean Time To Recovery
+
+Example:
+
+10 Minutes
+MTBF
+
+Mean Time Between Failures
+
+Example:
+
+90 Days
+Executive Dashboard
+
+Business view.
+
+Platform Health
+
+Cost
+
+Incidents
+
+Availability
+
+Deployments
+Final Architecture After Phase 9
+Developer
+    │
+    ▼
+Backstage Portal
+    │
+    ▼
+Platform Templates
+    │
+    ▼
+GitHub
+    │
+    ▼
+Jenkins Shared Library
+    │
+    ▼
+Trivy Security
+    │
+    ▼
+Amazon ECR
+    │
+    ▼
+ArgoCD
+    │
+    ▼
+Multi-Cluster EKS
+    │
+    ├── DEV
+    ├── QA
+    ├── UAT
+    ├── PROD
+    └── DR
+    │
+    ▼
+Prometheus
+    │
+    ▼
+Grafana
+    │
+    ▼
+Loki
+    │
+    ▼
+Jaeger
+    │
+    ▼
+AlertManager
+    │
+    ▼
+AI Incident Engine
+    │
+    ▼
+Automated Recovery
+    │
+    ▼
+Predictive Analytics
+
+---------------------
+
+Security
+
+IRSA
+Secrets Manager
+Trivy
+Falco
+
+---------------------
+
+Backup
+
+Velero
+S3
+
+---------------------
+
+GitOps
+
+ArgoCD
+
+---------------------
+
+Platform Engineering
+
+Backstage
+Golden Paths
+Service Catalog
+Shared Libraries
+
+
+
+
+  ####################################### meaning for all these 9 phases #####################################################
+
+
+  Excellent. This is the point where most learners fail.
+
+They learn:
+
+Terraform
+Docker
+Jenkins
+Kubernetes
+AWS
+Prometheus
+Grafana
+
+But when an interviewer asks:
+
+"Show me your GitHub project."
+
+They have:
+
+terraform.tf
+deployment.yaml
+Jenkinsfile
+
+randomly scattered.
+
+That doesn't look like a production project.
+
+FINAL GITHUB REPOSITORY STRUCTURE
+
+This is the structure I would use if I were building this project for interviews.
+
+self-healing-aiops-platform/
+
+│
+├── README.md
+│
+├── docs/
+│   │
+│   ├── architecture
+│   ├── diagrams
+│   ├── runbooks
+│   ├── incidents
+│   └── screenshots
+│
+├── terraform/
+│   │
+│   ├── modules/
+│   │
+│   │   ├── vpc/
+│   │   ├── eks/
+│   │   ├── ecr/
+│   │   ├── iam/
+│   │   ├── security-group/
+│   │   ├── alb/
+│   │   └── s3/
+│   │
+│   ├── dev/
+│   ├── qa/
+│   ├── uat/
+│   └── prod/
+│
+├── jenkins/
+│   │
+│   ├── Jenkinsfile
+│   ├── shared-library/
+│   └── scripts/
+│
+├── application/
+│   │
+│   ├── frontend/
+│   ├── backend/
+│   ├── payment-service/
+│   └── inventory-service/
+│
+├── docker/
+│   │
+│   ├── frontend/
+│   ├── backend/
+│   └── ai-engine/
+│
+├── kubernetes/
+│   │
+│   ├── namespaces/
+│   │
+│   ├── dev/
+│   ├── qa/
+│   ├── uat/
+│   └── prod/
+│
+├── argocd/
+│
+├── monitoring/
+│   │
+│   ├── prometheus/
+│   ├── grafana/
+│   ├── loki/
+│   ├── alertmanager/
+│   └── dashboards/
+│
+├── security/
+│   │
+│   ├── trivy/
+│   ├── falco/
+│   └── irsa/
+│
+├── backups/
+│   │
+│   ├── velero/
+│   └── restore/
+│
+├── ai-engine/
+│   │
+│   ├── app.py
+│   ├── analyzer.py
+│   ├── recovery.py
+│   ├── reports/
+│   └── Dockerfile
+│
+├── chaos-engineering/
+│
+├── scripts/
+│
+└── tests/
+REPOSITORY FLOW
+
+When interviewer opens GitHub:
+
+README
+   ↓
+Architecture
+   ↓
+Infrastructure
+   ↓
+CI/CD
+   ↓
+Kubernetes
+   ↓
+Monitoring
+   ↓
+AI Engine
+   ↓
+Recovery
+
+Everything looks professional.
+
+README STRUCTURE
+
+The README is more important than the code.
+
+Many interviewers read README before code.
+
+Section 1
+Project Overview
+Intelligent Self-Healing AIOps Platform
+
+A production-grade cloud-native platform
+built on AWS EKS that provides:
+
+• Automated CI/CD
+• Auto Scaling
+• Monitoring
+• Alerting
+• AI Incident Analysis
+• Automated Recovery
+• GitOps Deployment
+• Disaster Recovery
+Section 2
+Problem Statement
+Traditional DevOps platforms require
+manual intervention during incidents.
+
+This platform automatically detects,
+analyzes and recovers from failures.
+Section 3
+Architecture Diagram
+
+Add architecture image.
+
+docs/diagrams
+
+Store:
+
+architecture.png
+Section 4
+Technologies Used
+Category	Tools
+Cloud	AWS
+IaC	Terraform
+CI/CD	Jenkins
+Container	Docker
+Orchestration	Kubernetes
+Registry	ECR
+Monitoring	Prometheus
+Visualization	Grafana
+Logging	Loki
+Tracing	Jaeger
+Alerting	AlertManager
+GitOps	ArgoCD
+Security	Trivy
+Runtime Security	Falco
+Backup	Velero
+AI	Python
+Section 5
+Architecture Components
+Infrastructure Layer
+Terraform
+VPC
+Subnets
+EKS
+ECR
+IAM
+ALB
+Deployment Layer
+GitHub
+
+Jenkins
+
+Docker
+
+ArgoCD
+Runtime Layer
+Kubernetes
+
+Namespaces
+
+Services
+
+Ingress
+
+HPA
+Monitoring Layer
+Prometheus
+
+Grafana
+
+AlertManager
+AI Layer
+Incident Analysis
+
+Root Cause Detection
+
+Automated Recovery
+PROJECT WORKFLOW DIAGRAM
+Developer
+    │
+    ▼
+GitHub
+    │
+    ▼
+Webhook
+    │
+    ▼
+Jenkins
+    │
+    ▼
+Build
+    │
+    ▼
+Trivy Scan
+    │
+    ▼
+Docker Build
+    │
+    ▼
+Amazon ECR
+    │
+    ▼
+ArgoCD
+    │
+    ▼
+Amazon EKS
+    │
+    ▼
+Prometheus
+    │
+    ▼
+AlertManager
+    │
+    ▼
+AI Engine
+    │
+    ▼
+Recovery Action
+INTERVIEW DEMO SCENARIOS
+
+Create folder:
+
+docs/incidents
+
+Store:
+
+incident-01-pod-failure.md
+
+incident-02-high-cpu.md
+
+incident-03-node-failure.md
+
+incident-04-memory-leak.md
+
+incident-05-deployment-failure.md
+Example Incident File
+Incident:
+Pod Failure
+
+Problem:
+Payment Pod Crashed
+
+Detection:
+Prometheus Alert
+
+Analysis:
+AI Engine
+
+Recovery:
+Kubernetes recreated pod
+
+Result:
+Application restored
+
+Interviewers love this.
+
+SCREENSHOTS FOLDER
+
+Store screenshots of:
+
+Terraform Apply
+
+Jenkins Pipeline
+
+ECR Images
+
+EKS Nodes
+
+Pods
+
+Grafana Dashboard
+
+AlertManager
+
+ArgoCD
+
+AI Reports
+RUNBOOKS
+
+Create:
+
+docs/runbooks
+
+Examples:
+
+Node Failure Runbook
+
+Pod Failure Runbook
+
+Database Failure Runbook
+
+Deployment Failure Runbook
+REAL INTERVIEW ADVANTAGE
+
+Most candidates say:
+
+I know Kubernetes.
+
+You can say:
+
+I built a production-grade self-healing AIOps platform on AWS using Terraform, EKS, Jenkins, ArgoCD, Prometheus, Grafana, Trivy, Velero, and an AI-based incident response engine that automatically detects and recovers from failures.
+
+That is a much stronger conversation.
+
+What You Should Build First
+
+Don't implement all Phase 1–9 at once.
+
+Build in this order:
+
+Step 1
+Terraform + AWS
+
+Step 2
+Jenkins + Docker + ECR
+
+Step 3
+EKS Deployment
+
+Step 4
+Prometheus + Grafana
+
+Step 5
+HPA + Auto Scaling
+
+Step 6
+AI Incident Engine
+
+Step 7
+ArgoCD
+
+Step 8
+Trivy
+
+Step 9
+Velero
+
+Step 10
+Loki + Jaeger
+
+Once those 10 steps are working, you'll have a project that is significantly stronger than the standard "Jenkins + Docker + Kubernetes" project that most DevOps candidates present
+
+
+
+
+  
+
+
+
+----------------------  Phase 10 – Global Multi-Region Active-Active Platform (Cloud Architect Level)-----------------------------
+
+⚠️ Before we start:
+
+This phase is beyond a typical DevOps Engineer project.
+
+This is closer to:
+
+Senior DevOps Engineer
+Cloud Architect
+Site Reliability Engineer (SRE)
+Platform Architect
+
+Many companies never implement this fully because it is expensive.
+
+But learning the architecture is extremely valuable.
+
+Business Problem
+
+Imagine your platform runs in:
+
+Mumbai Region
+ap-south-1
+
+Suddenly:
+
+Region Outage
+
+Possible causes:
+
+Power Failure
+
+Network Failure
+
+AWS Service Failure
+
+Natural Disaster
+
+Result:
+
+Entire Platform Down
+
+Millions lost.
+
+Goal
+
+If Mumbai fails:
+
+Users Should Not Notice
+
+Traffic automatically moves to another region.
+
+Phase 10 Architecture
+Users
+   │
+   ▼
+Route53
+   │
+   ▼
+Global Load Balancing
+   │
+   ├──────────────┐
+   ▼              ▼
+
+Mumbai          Singapore
+ap-south-1      ap-southeast-1
+
+EKS             EKS
+Cluster         Cluster
+
+   │              │
+   ▼              ▼
+
+Applications   Applications
+
+   │              │
+   ▼              ▼
+
+RDS Replica  ↔  RDS Replica
+Why Multi-Region?
+
+Current Architecture:
+
+Mumbai Only
+
+Problem:
+
+Mumbai Down
+
+Platform Down
+
+New Architecture:
+
+Mumbai
+
+Singapore
+
+If Mumbai fails:
+
+Traffic
+    ▼
+Singapore
+
+Application survives.
+
+Active-Passive vs Active-Active
+Active-Passive
+
+Normal:
+
+Mumbai
+
+Running.
+
+Singapore:
+
+Standby
+
+Waiting.
+
+If Mumbai fails:
+
+Singapore Starts Serving
+
+Advantages
+
+Lower Cost
+
+Disadvantages
+
+Recovery Delay
+Active-Active
+
+Both regions active.
+
+Mumbai
+
+Singapore
+
+Serving traffic together.
+
+Traffic:
+
+50%
+
+50%
+
+Split automatically.
+
+Advantages
+
+Highest Availability
+
+Disadvantages
+
+Higher Cost
+Global DNS
+
+Use:
+
+Amazon Route 53
+
+Users access:
+
+www.aiops-platform.com
+
+Route53 decides:
+
+India User
+     ▼
+Mumbai
+
+Singapore User
+     ▼
+Singapore
+Health Checks
+
+Route53 continuously checks:
+
+Application Health
+
+If Mumbai fails:
+
+Health Check Failed
+
+Route53 automatically routes:
+
+All Traffic
+      ▼
+Singapore
+Multi-Region EKS
+
+Current:
+
+One EKS Cluster
+
+Phase 10:
+
+Mumbai EKS
+
+Singapore EKS
+
+Both clusters contain:
+
+Frontend
+
+Backend
+
+Payment
+
+Inventory
+
+AI Engine
+ArgoCD Multi-Cluster
+
+One ArgoCD controls:
+
+Mumbai Cluster
+
+Singapore Cluster
+
+Architecture:
+
+GitHub
+    │
+    ▼
+ArgoCD
+    │
+    ├── Mumbai
+    │
+    └── Singapore
+Deployment Flow
+
+Developer pushes code.
+
+GitHub
+
+↓
+
+ArgoCD
+
+↓
+
+Deploy:
+
+Mumbai
+
+Singapore
+
+Automatically.
+
+Container Registry
+
+Use:
+
+Amazon Elastic Container Registry
+
+Image:
+
+payment-service:v2
+
+Replicated.
+
+Available in:
+
+Mumbai
+
+Singapore
+Database Challenge
+
+This is the hardest part.
+
+Applications easy.
+
+Databases difficult.
+
+Problem
+
+User updates account.
+
+Mumbai Database
+
+Singapore database must know.
+
+Otherwise:
+
+Data Mismatch
+Solution 1
+
+Read Replica
+
+Mumbai
+   │
+   ▼
+Primary DB
+
+   │
+   ▼
+Singapore Replica
+
+Good for:
+
+Reporting
+
+Analytics
+
+Not ideal for active-active.
+
+Solution 2
+
+Global Database
+
+Use:
+
+Amazon Aurora Global Database
+
+Architecture:
+
+Mumbai
+   │
+   ▼
+Primary Cluster
+
+Singapore
+   │
+   ▼
+Secondary Cluster
+
+Replication:
+
+Less than 1 second
+Storage Replication
+
+Use:
+
+Amazon S3
+
+Cross-Region Replication
+
+Mumbai Bucket
+        │
+        ▼
+Singapore Bucket
+
+If one region fails:
+
+Files Still Available
+Global Monitoring
+
+Current:
+
+Prometheus
+
+One region.
+
+Phase 10:
+
+Mumbai Prometheus
+
+Singapore Prometheus
+
+Central Grafana
+
+Single Dashboard
+
+Shows:
+
+Both Regions
+Multi-Region AI Incident Engine
+
+Current:
+
+One AI Engine
+
+Phase 10:
+
+Mumbai AI Engine
+
+Singapore AI Engine
+
+Failure Detection
+
+Mumbai Failure
+
+↓
+
+AI Engine
+
+↓
+
+Generate Incident
+
+↓
+
+Trigger Failover
+
+Automated Failover
+
+Current:
+
+Manual
+
+Phase 10:
+
+Route53
+
+Automatically switches traffic.
+
+Example
+
+12:00 PM
+
+Mumbai Healthy
+
+Traffic:
+
+50%
+
+50%
+
+12:05 PM
+
+Mumbai outage.
+
+Route53 detects.
+
+12:06 PM
+
+Traffic:
+
+0%
+
+100%
+
+Singapore.
+
+Users continue working.
+
+Disaster Recovery Levels
+RPO
+
+Recovery Point Objective
+
+Maximum data loss.
+
+Example:
+
+5 Minutes
+RTO
+
+Recovery Time Objective
+
+Maximum recovery time.
+
+Example:
+
+10 Minutes
+
+Phase 10 Target
+
+RPO < 1 Minute
+
+RTO < 5 Minutes
+Global Observability
+
+Metrics:
+
+CPU
+
+Memory
+
+Latency
+
+Availability
+
+Across all regions.
+
+Logs:
+
+Loki
+
+Across all regions.
+
+Traces:
+
+Jaeger
+
+Across all regions.
+
+Security
+
+Every region includes:
+
+IRSA
+
+Secrets Manager
+
+Trivy
+
+Falco
+
+WAF
+Cost Impact
+
+This is expensive.
+
+Current:
+
+One Region
+
+Cost:
+
+1X
+
+Phase 10:
+
+Two Regions
+
+Cost:
+
+2X–3X
+Final Phase 10 Architecture
+Users
+   │
+   ▼
+Route53
+   │
+   ▼
+Global Traffic Manager
+   │
+   ├───────────────┐
+   ▼               ▼
+
+Mumbai           Singapore
+
+EKS              EKS
+
+ArgoCD           ArgoCD
+
+Prometheus       Prometheus
+
+AI Engine        AI Engine
+
+Aurora Global Database
+
+S3 Cross Region Replication
+
+-------------------------
+
+Observability
+
+Grafana
+
+Loki
+
+Jaeger
+
+-------------------------
+
+Security
+
+Trivy
+
+Falco
+
+IRSA
+
+Secrets Manager
+
+-------------------------
+
+Disaster Recovery
+
+Velero
+
+Cross-Region Backup
+What Phase 10 Adds
+
+✅ Multi-Region Architecture
+
+✅ Active-Active Design
+
+✅ Global Load Balancing
+
+✅ Route53 Failover
+
+✅ Aurora Global Database
+
+✅ Cross-Region Replication
+
+✅ Multi-Cluster ArgoCD
+
+✅ Global Observability
+
+✅ Global AI Incident Response
+
+✅ Enterprise Disaster Recovery
+
+
+
+  ------------------------------------------------------------------phase 11------------------------------------------------------
+
+
+
+  Phase 11 – FinOps + AI Cost Intelligence Platform
+
+Now we move from:
+
+"Can the platform run?"
+
+to
+
+"Can the platform run efficiently and profitably?"
+
+This is where many DevOps engineers stop and where companies start caring.
+
+Real Business Problem
+
+Imagine your platform is running perfectly.
+
+99.99% uptime
+No outages
+No incidents
+
+CEO asks:
+
+Why is our AWS bill ₹12 lakhs per month?
+
+Nobody knows.
+
+This is a real problem.
+
+Many companies waste:
+
+20%–40%
+
+of their cloud spend.
+
+Goal of Phase 11
+
+Build a platform that:
+
+Tracks Cloud Cost
+
+Predicts Future Cost
+
+Detects Waste
+
+Recommends Savings
+
+Automates Optimization
+New Architecture
+AWS Resources
+       │
+       ▼
+Cost Collection Engine
+       │
+       ▼
+Cost Analytics Engine
+       │
+       ▼
+AI Cost Advisor
+       │
+       ▼
+Executive Dashboard
+       │
+       ▼
+Optimization Actions
+Cost Visibility Layer
+
+Current:
+
+EC2
+EKS
+EBS
+RDS
+ALB
+NAT Gateway
+S3
+
+Running.
+
+Nobody tracks cost.
+
+FinOps Dashboard
+
+Track:
+
+Daily Cost
+
+Monthly Cost
+
+Cost Per Environment
+
+Cost Per Team
+
+Cost Per Application
+
+Cost Per Namespace
+Example Dashboard
+PROD      ₹45,000
+
+UAT       ₹8,000
+
+QA        ₹6,000
+
+DEV       ₹4,000
+
+Monitoring ₹7,000
+
+Immediately useful.
+
+Cost Allocation Tags
+
+Every AWS resource gets tags.
+
+Example:
+
+Environment=Prod
+
+Team=Platform
+
+Project=AIOps
+
+Owner=DevOps
+Why Tags Matter?
+
+Without tags:
+
+Monthly Cost = ₹1,00,000
+
+No idea where money went.
+
+With tags:
+
+EKS          ₹35,000
+
+RDS          ₹20,000
+
+NAT Gateway  ₹12,000
+
+ALB          ₹8,000
+
+Now you can optimize.
+
+AI Cost Advisor
+
+This becomes your unique feature.
+
+Example 1
+
+AI notices:
+
+Node CPU = 10%
+for 14 days
+
+Recommendation:
+
+Scale Down Node Group
+
+Savings:
+
+₹8,000/month
+Example 2
+
+AI notices:
+
+Unused EBS Volume
+
+Recommendation:
+
+Delete Volume
+
+Savings:
+
+₹2,500/month
+Example 3
+
+AI notices:
+
+DEV Environment
+running at night
+
+Recommendation:
+
+Shutdown 8PM–8AM
+
+Savings:
+
+₹15,000/month
+Cost Prediction Engine
+
+Using historical data.
+
+Example:
+
+Current Cost
+
+January = ₹40,000
+
+February = ₹50,000
+
+March = ₹60,000
+
+Prediction:
+
+June Cost = ₹85,000
+
+before it happens.
+
+Kubernetes Cost Monitoring
+
+One of the coolest features.
+
+Most companies know:
+
+AWS Bill
+
+But don't know:
+
+Which Pod
+
+Which Team
+
+Which Namespace
+
+caused it.
+
+Namespace Cost Tracking
+prod      ₹20,000
+
+qa         ₹4,000
+
+uat        ₹3,000
+
+dev        ₹2,000
+Service Cost Tracking
+payment-service     ₹7,000
+
+inventory-service   ₹4,000
+
+frontend            ₹3,000
+Rightsizing Engine
+
+Common waste:
+
+CPU Request = 4 Core
+
+Actual Usage = 0.3 Core
+
+Huge waste.
+
+AI Recommendation:
+
+requests:
+  cpu: "500m"
+
+instead of:
+
+requests:
+  cpu: "4000m"
+Spot Instance Optimizer
+
+Current:
+
+DEV
+QA
+Monitoring
+
+Running on On-Demand instances.
+
+Recommendation:
+
+Move to Spot Instances
+
+Savings:
+
+60%-90%
+Storage Optimization
+
+Find:
+
+Unused Snapshots
+
+Unused EBS
+
+Unused AMIs
+
+Unused S3 Objects
+
+Generate report:
+
+Monthly Waste
+
+₹12,000
+Carbon Footprint Dashboard
+
+Advanced FinOps feature.
+
+Track:
+
+Energy Usage
+
+Estimated Carbon Impact
+
+Compute Efficiency
+Executive Dashboard
+
+Not for engineers.
+
+For managers.
+
+Show:
+
+Availability
+
+Incidents
+
+Deployments
+
+Monthly Cost
+
+Predicted Cost
+
+Savings Achieved
+Monthly AI Report
+
+Generated automatically.
+
+Example:
+
+Platform Cost Report
+
+Current Cost:
+₹62,000
+
+Predicted Next Month:
+₹68,000
+
+Optimization Opportunities:
+
+1. Remove unused EBS
+2. Scale DEV at night
+3. Use Spot Instances
+
+Estimated Savings:
+₹18,500/month
+Automated Cost Actions
+
+Very advanced.
+
+Example:
+
+DEV Namespace
+
+No activity.
+
+System automatically:
+
+Scale To Zero
+
+after office hours.
+
+Morning:
+
+Automatically Start Again
+FinOps KPIs
+
+Track:
+
+Cost Per Deployment
+
+Cost Per Application
+
+Cost Per User
+
+Cost Per Environment
+
+Savings Generated
+Interview Impact
+
+Most candidates discuss:
+
+Docker
+
+Jenkins
+
+Kubernetes
+
+You can discuss:
+
+Reliability
+
+Security
+
+Disaster Recovery
+
+Cost Optimization
+
+This immediately stands out.
+
+Final Phase 11 Architecture
+AWS Resources
+      │
+      ▼
+Cost Collection Engine
+      │
+      ▼
+Cost Analytics Platform
+      │
+      ▼
+AI Cost Advisor
+      │
+      ▼
+Executive Dashboard
+
+----------------------
+
+EKS
+
+Namespaces
+
+Pods
+
+Node Groups
+
+----------------------
+
+Optimization Engine
+
+Rightsizing
+
+Spot Instances
+
+Storage Cleanup
+
+Night Shutdown
+
+----------------------
+
+Reporting
+
+Monthly Cost Reports
+
+Forecasting
+
+Savings Recommendations
+What Phase 11 Adds
+
+✅ FinOps
+
+✅ Cost Visibility
+
+✅ Namespace Cost Tracking
+
+✅ Cost Forecasting
+
+✅ AI Cost Advisor
+
+✅ Rightsizing Recommendations
+
+✅ Spot Instance Optimization
+
+✅ Storage Optimization
+
+✅ Executive Cost Dashboard
+
+✅ Automated Cost Savings
+
+At this stage, the project is no longer just a DevOps platform. It combines DevOps + SRE + Security + AIOps + FinOps, which is close to how large organizations think about operating cloud platforms.
+
+
+
+ ------------------------------------------------------- phase 12-----------------------------------------------------------
+
+
+
+
+  Phase 12 – Enterprise Cloud Platform (Master Capstone Project)
+
+This is the final phase.
+
+At this point you are no longer building:
+
+A DevOps Project
+
+You are building:
+
+A Complete Enterprise Cloud Platform
+
+This combines everything from:
+
+DevOps
+SRE
+Platform Engineering
+AIOps
+FinOps
+Security
+Disaster Recovery
+Cloud Architecture
+
+into one platform.
+
+Final Vision
+
+Imagine your company.
+
+500 Developers
+
+100 Applications
+
+20 Teams
+
+Multiple Regions
+
+Millions of Users
+
+Your platform should allow developers to deploy applications without worrying about:
+
+Infrastructure
+
+CI/CD
+
+Monitoring
+
+Security
+
+Scaling
+
+Backups
+
+Recovery
+
+The platform handles everything.
+
+Final Architecture
+Developers
+      │
+      ▼
+Backstage Portal
+      │
+      ▼
+Platform Templates
+      │
+      ▼
+GitHub
+      │
+      ▼
+Jenkins
+      │
+      ▼
+Security Scan
+      │
+      ▼
+Amazon ECR
+      │
+      ▼
+ArgoCD
+      │
+      ▼
+Multi-Region EKS
+
+--------------------------------
+
+Monitoring Layer
+
+Prometheus
+Grafana
+Loki
+Jaeger
+
+--------------------------------
+
+Security Layer
+
+IRSA
+Secrets Manager
+Trivy
+Falco
+WAF
+
+--------------------------------
+
+AIOps Layer
+
+AI Incident Engine
+Root Cause Analysis
+Auto Recovery
+
+--------------------------------
+
+FinOps Layer
+
+Cost Analytics
+Forecasting
+Optimization
+
+--------------------------------
+
+Backup Layer
+
+Velero
+S3
+Cross Region Replication
+
+--------------------------------
+
+Chaos Engineering
+
+LitmusChaos
+
+--------------------------------
+
+Global Traffic
+
+Route53
+Global Failover
+Developer Experience
+
+The developer logs into:
+
+Backstage
+
+and clicks:
+
+Create New Service
+
+Developer enters:
+
+Service Name:
+payment-service
+
+Language:
+Java
+
+Port:
+8080
+
+Platform automatically creates:
+
+GitHub Repository
+
+Dockerfile
+
+Jenkinsfile
+
+Helm Chart
+
+ArgoCD Application
+
+Monitoring
+
+Alert Rules
+
+HPA
+
+Security Policies
+
+No manual work.
+
+Golden Path Deployment
+
+Instead of:
+
+Developer writes:
+
+Dockerfile
+
+Deployment YAML
+
+Service YAML
+
+Ingress YAML
+
+HPA YAML
+
+Platform generates:
+
+Everything Automatically
+
+This is called:
+
+Golden Path
+AI Operations Center
+
+This becomes the brain.
+
+AI Incident Analysis
+
+Detect:
+
+CPU High
+
+Memory High
+
+Pod Failure
+
+Node Failure
+
+Database Latency
+
+AI determines:
+
+Root Cause
+
+Severity
+
+Business Impact
+
+Recommended Action
+
+Example
+
+Incident:
+
+Payment Service Slow
+
+Root Cause:
+
+Database Connection Pool Exhausted
+
+Impact:
+
+Checkout Failure
+
+Recommended Action:
+
+Scale Backend Pods
+Increase DB Connections
+Automated Recovery
+
+Platform executes:
+
+kubectl scale deployment payment-service --replicas=10
+
+Automatically.
+
+Predictive Operations
+
+AI predicts:
+
+CPU Growth Trend
+
+Storage Growth Trend
+
+Traffic Growth Trend
+
+Example
+
+Prediction:
+
+Node Capacity Exhausted
+Within 5 Days
+
+Action:
+
+Add Node Group
+
+Before outage occurs.
+
+Enterprise Security Layer
+
+Every deployment automatically gets:
+
+Trivy Scan
+
+Image Validation
+
+Secrets Scanning
+
+IRSA
+
+Network Policies
+
+Falco Runtime Monitoring
+
+If vulnerability detected:
+
+Deployment Blocked
+Global High Availability
+
+Regions:
+
+Mumbai
+
+Singapore
+
+US
+
+Traffic Routing
+
+India Users
+     ▼
+Mumbai
+
+US Users
+     ▼
+US Region
+
+Singapore Users
+     ▼
+Singapore
+
+If Mumbai fails:
+
+Traffic Automatically
+
+Mumbai
+    ▼
+Singapore
+
+No downtime.
+
+Global Database Layer
+
+Use:
+
+Amazon Aurora Global Database
+
+Replication:
+
+< 1 Second
+
+Across regions.
+
+Global Observability
+
+Metrics:
+
+Prometheus
+
+Logs:
+
+Loki
+
+Traces:
+
+Jaeger
+
+Visualization:
+
+Grafana
+
+Single dashboard.
+
+View:
+
+All Regions
+
+All Clusters
+
+All Applications
+Chaos Engineering
+
+Continuously test:
+
+Pod Failure
+
+Node Failure
+
+Network Failure
+
+Database Failure
+
+Using:
+
+LitmusChaos
+
+Verify:
+
+Recovery Works
+
+Alerts Work
+
+Scaling Works
+FinOps Layer
+
+Track:
+
+Cost Per Team
+
+Cost Per Namespace
+
+Cost Per Service
+
+Cost Per Region
+
+AI generates:
+
+Monthly Savings Report
+
+Unused Resources
+
+Optimization Opportunities
+
+Example
+
+Potential Savings
+
+₹25,000 / Month
+Executive Dashboard
+
+Management sees:
+
+Availability
+
+Incidents
+
+Deployments
+
+Cost
+
+Savings
+
+Security Score
+
+Compliance Score
+Platform KPIs
+
+Track:
+
+Deployment Frequency
+
+MTTR
+
+MTBF
+
+Availability
+
+Error Budget
+
+Cost Efficiency
+
+Security Score
+Final Repository Structure
+enterprise-cloud-platform/
+
+├── terraform/
+├── kubernetes/
+├── argocd/
+├── jenkins/
+├── monitoring/
+├── security/
+├── backups/
+├── ai-engine/
+├── finops/
+├── backstage/
+├── chaos-engineering/
+├── scripts/
+├── docs/
+└── README.md
+What This Project Demonstrates
+DevOps
+Git
+GitHub
+Docker
+Jenkins
+Terraform
+Cloud
+AWS
+VPC
+IAM
+EKS
+ECR
+ALB
+Route53
+S3
+Aurora
+Kubernetes
+Deployments
+Services
+Ingress
+Namespaces
+HPA
+Cluster Autoscaler
+Monitoring
+Prometheus
+Grafana
+AlertManager
+Loki
+Jaeger
+Security
+Trivy
+Falco
+IRSA
+Secrets Manager
+Reliability
+Velero
+Disaster Recovery
+Multi Region
+Chaos Engineering
+AI
+Root Cause Analysis
+
+Incident Detection
+
+Predictive Scaling
+
+Automated Recovery
+FinOps
+Cost Tracking
+
+Forecasting
+
+Optimization
+Reality Check
+
+If you fully implement:
+
+Phase 1 → Phase 6
+
+you already have a project stronger than most DevOps fresher portfolios.
+
+If you implement:
+
+Phase 1 → Phase 9
+
+you'll have enough material for multiple interview rounds.
+
+If you implement:
+
+Phase 1 → Phase 12
+
+you've essentially designed an enterprise cloud platform that touches DevOps, SRE, Platform Engineering, Security, AIOps, FinOps, and Cloud Architecture.
+
+
+
+
+
+
+
+
+
+
+
+  -------------------------------------------------------------phase 13--------------------------------------------------------
+
+  There is no meaningful Phase 13 for this project.
+
+By Phase 12, you've already crossed from:
+
+DevOps Project
+    ↓
+Production Platform
+    ↓
+Enterprise Platform
+    ↓
+Cloud Architecture
+
+At that point, adding more phases becomes less useful than actually implementing the platform.
+
+If I had to name a "Phase 13", it would not be another technology. It would be:
+
+Phase 13 – Real Implementation & Production Operations
+
+This is where most people stop learning from YouTube and start becoming engineers.
+
+What Changes?
+
+Before:
+
+I know Terraform.
+I know Jenkins.
+I know Kubernetes.
+
+After:
+
+I built it.
+I broke it.
+I fixed it.
+I optimized it.
+Real Tasks
+Week 1
+
+Build VPC
+
+VPC
+
+Public Subnets
+
+Private Subnets
+
+Route Tables
+
+Internet Gateway
+
+NAT Gateway
+Week 2
+
+Build EKS
+
+Cluster
+
+Node Groups
+
+IAM Roles
+
+kubectl Access
+Week 3
+
+Deploy Application
+
+Docker
+
+ECR
+
+Deployment
+
+Service
+
+Ingress
+Week 4
+
+Build Jenkins Pipeline
+
+GitHub
+
+Webhook
+
+Jenkins
+
+Docker Build
+
+Push ECR
+
+Deploy EKS
+Week 5
+
+Monitoring
+
+Prometheus
+
+Grafana
+
+AlertManager
+Week 6
+
+Auto Scaling
+
+HPA
+
+Metrics Server
+
+Load Testing
+Week 7
+
+AI Engine
+
+Incident Detection
+
+Root Cause Analysis
+
+Recovery Actions
+Week 8
+
+Security
+
+Trivy
+
+IRSA
+
+Secrets Manager
+Week 9
+
+GitOps
+
+ArgoCD
+Week 10
+
+Backups
+
+Velero
+
+S3
+The Real Interview
+
+An interviewer will not ask:
+
+What is Phase 13?
+
+They will ask:
+
+Terraform
+
+Why did you choose private subnets for EKS nodes?
+
+Kubernetes
+
+What happens if a pod dies?
+
+Jenkins
+
+What happens if Docker build fails?
+
+Prometheus
+
+How does Prometheus collect metrics?
+
+ArgoCD
+
+How does GitOps work?
+
+AI Engine
+
+How does your AI engine decide whether to scale pods?
+
+Disaster Recovery
+
+What is your RTO and RPO?
+
+What Would Impress Me Most?
+
+Not:
+
+Phase 13
+Phase 14
+Phase 15
+
+But:
+
+GitHub Repository
+
+Working Terraform
+
+Working EKS
+
+Working Jenkins
+
+Working Prometheus
+
+Working Grafana
+
+Working AI Engine
+
+Screenshots
+
+Architecture Diagram
+
+Documentation
+
+That's what gets discussed in interviews.
+
+So, in practical terms:
+
+Phase 1–6 = Build
+Phase 7–9 = Enhance
+Phase 10–12 = Architect Level Design
+Phase 13 = Actually Implement Everything
+
+If you decide to build this project, the next thing I'd recommend is creating the complete repository file-by-file implementation plan (every folder, every YAML, every Terraform file, every Jenkins file, and the exact order to build them). That's the bridge between architecture and a real GitHub project.
+
+ok go ahead
+
+Perfect. Now stop thinking about Phase 14, 15, 16.
+
+You have enough architecture.
+
+Now we build the actual project implementation plan exactly like a company project.
+
+PROJECT NAME
+Self-Healing AIOps Platform
+GITHUB REPOSITORY
+self-healing-aiops-platform
+MASTER REPOSITORY STRUCTURE
+self-healing-aiops-platform/
+
+├── README.md
+│
+├── docs/
+│
+├── terraform/
+│
+├── jenkins/
+│
+├── application/
+│
+├── docker/
+│
+├── kubernetes/
+│
+├── monitoring/
+│
+├── ai-engine/
+│
+├── security/
+│
+├── argocd/
+│
+├── backups/
+│
+├── scripts/
+│
+└── screenshots/
+BUILD ORDER
+
+Never start from Jenkins.
+
+Never start from Kubernetes.
+
+Build from bottom to top.
+
+STEP 1
+Terraform Infrastructure
+
+Folder:
+
+terraform/
+
+Files:
+
+terraform/
+
+├── provider.tf
+├── variables.tf
+├── outputs.tf
+├── main.tf
+│
+├── vpc.tf
+├── subnet.tf
+├── route-table.tf
+├── igw.tf
+├── nat.tf
+│
+├── security-groups.tf
+│
+├── iam.tf
+│
+├── eks.tf
+│
+└── ecr.tf
+First Goal
+
+Create:
+
+VPC
+
+Public Subnet
+
+Private Subnet
+
+NAT
+
+EKS
+
+ECR
+Success Check
+kubectl get nodes
+
+Should show:
+
+Ready
+Ready
+STEP 2
+Sample Application
+
+Folder:
+
+application/
+
+Structure:
+
+application/
+
+├── frontend
+│
+├── backend
+│
+├── payment
+│
+└── inventory
+
+Initially:
+
+Create only:
+
+frontend
+
+Simple nginx application.
+
+Files:
+
+frontend/
+
+├── index.html
+└── Dockerfile
+
+Success Check
+
+docker build
+
+works.
+
+STEP 3
+ECR
+
+Push image.
+
+Commands:
+
+docker build
+
+docker tag
+
+docker push
+
+Success Check
+
+Image visible in:
+
+Amazon ECR
+STEP 4
+Kubernetes
+
+Folder:
+
+kubernetes/
+
+Structure:
+
+kubernetes/
+
+├── namespace.yaml
+│
+├── deployment.yaml
+│
+├── service.yaml
+│
+├── ingress.yaml
+│
+└── hpa.yaml
+
+Deploy:
+
+kubectl apply
+
+Success Check
+
+kubectl get pods
+
+Output:
+
+3 Running
+STEP 5
+Load Balancer
+
+Deploy Service.
+
+type: LoadBalancer
+
+Success Check
+
+kubectl get svc
+
+Output:
+
+EXTERNAL-IP
+
+Open Browser.
+
+Application loads.
+
+STEP 6
+Jenkins
+
+Folder:
+
+jenkins/
+
+Files:
+
+jenkins/
+
+├── Jenkinsfile
+
+├── scripts/
+
+└── shared-library/
+
+Pipeline:
+
+Checkout
+
+Build
+
+Docker Build
+
+Push ECR
+
+Deploy EKS
+
+Success Check
+
+Git push triggers deployment.
+
+STEP 7
+Monitoring
+
+Folder:
+
+monitoring/
+
+Structure:
+
+monitoring/
+
+├── prometheus/
+│
+├── grafana/
+│
+└── alertmanager/
+
+Install:
+
+Prometheus
+
+Grafana
+
+AlertManager
+
+Success Check
+
+Dashboard shows:
+
+CPU
+
+Memory
+
+Pods
+STEP 8
+HPA
+
+File:
+
+kubernetes/hpa.yaml
+
+Rule:
+
+70% CPU
+
+Success Check
+
+Load test.
+
+Pods increase.
+
+STEP 9
+AI Engine
+
+Folder:
+
+ai-engine/
+
+Files:
+
+ai-engine/
+
+├── app.py
+
+├── analyzer.py
+
+├── recovery.py
+
+├── Dockerfile
+
+└── requirements.txt
+
+Functions:
+
+Receive Alert
+
+Analyze Alert
+
+Generate Report
+
+Scale Pods
+
+Success Check
+
+CPU Alert.
+
+AI Engine receives alert.
+
+Report generated.
+
+STEP 10
+AlertManager Integration
+
+Flow:
+
+Prometheus
+     ↓
+AlertManager
+     ↓
+AI Engine
+
+Success Check
+
+Alert automatically reaches AI engine.
+
+STEP 11
+Slack Notification
+
+Create:
+
+slack.py
+
+Alert:
+
+Payment Service High CPU
+
+appears in Slack.
+
+STEP 12
+Security
+
+Folder:
+
+security/
+
+Install:
+
+Trivy
+
+Pipeline:
+
+Build
+
+↓
+
+Trivy Scan
+
+↓
+
+Push ECR
+
+Success Check
+
+Vulnerable images blocked.
+
+STEP 13
+Secrets Management
+
+Use:
+
+AWS Secrets Manager
+
+Store:
+
+Database Password
+
+API Keys
+
+Tokens
+
+Success Check
+
+No secrets inside code.
+
+STEP 14
+GitOps
+
+Folder:
+
+argocd/
+
+Install:
+
+ArgoCD
+
+Flow:
+
+Git
+ ↓
+ArgoCD
+ ↓
+Cluster
+
+Success Check
+
+Git change automatically updates cluster.
+
+STEP 15
+Backup
+
+Folder:
+
+backups/
+
+Install:
+
+Velero
+
+Create:
+
+Daily Backup
+
+Success Check
+
+Restore cluster.
+
+STEP 16
+Loki Logging
+
+Install:
+
+Loki
+
+FluentBit
+
+Success Check
+
+All pod logs searchable.
+
+STEP 17
+Jaeger Tracing
+
+Install:
+
+Jaeger
+
+Success Check
+
+Request trace visible.
+
+STEP 18
+Chaos Engineering
+
+Install:
+
+LitmusChaos
+
+Test:
+
+Pod Failure
+
+Node Failure
+
+Network Delay
+
+Success Check
+
+Recovery occurs automatically.
+
+STEP 19
+Multi Environment
+
+Namespaces:
+
+dev
+
+qa
+
+uat
+
+prod
+
+Success Check
+
+Deploy separately.
+
+STEP 20
+Final Documentation
+
+Create:
+
+README.md
+
+Architecture Diagram
+
+Screenshots
+
+Runbooks
+
+Incident Reports
+FINAL INTERVIEW DEMO
+
+Show:
+
+1. Terraform Apply
+
+2. EKS Cluster
+
+3. Jenkins Pipeline
+
+4. Docker Build
+
+5. ECR
+
+6. Kubernetes Pods
+
+7. Grafana Dashboard
+
+8. HPA Scaling
+
+9. AI Incident Report
+
+10. Slack Alert
+
+11. ArgoCD Sync
+
+12. Velero Backup
+
+13. Loki Logs
+
+14. Chaos Test
+
+15. Recovery Success
+REALISTIC TIMELINE
+
+For someone at your level:
+
+Terraform           1 Week
+
+EKS                 1 Week
+
+Docker/Jenkins      1 Week
+
+Kubernetes          1 Week
+
+Monitoring          1 Week
+
+AI Engine           2 Weeks
+
+Security            1 Week
+
+GitOps              1 Week
+
+Backup              1 Week
+
+Logging/Tracing     1 Week
+
+Documentation       1 Week
+
+Total:
+
+10–12 Weeks
+
+If you actually complete Steps 1–10 and document them properly on GitHub, you'll already have a project stronger than what most DevOps fresher candidates present in interviews. The key now is implementation, screenshots, troubleshooting, and being able to explain why every component exists.
